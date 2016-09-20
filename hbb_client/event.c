@@ -391,6 +391,9 @@ int eventEnd(void) {
 }
 
 int eventUpdate(void) {
+	sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DISABLE_AUTO_SUSPEND);
+	sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DISABLE_OLED_OFF);
+	sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DISABLE_OLED_DIMMING);
 	if (breakLoop) {
 		return -1;
 	}

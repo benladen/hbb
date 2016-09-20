@@ -44,7 +44,7 @@ void initDebugConnection(void) {
 void debugMessage(char *text) {
 	int rtn;
 	if (dbgScrn != NULL) {
-		debugTextPrint(dbgScrn, /* This could probably be done better. */
+		debugTextPrint(dbgScrn, /* TODO: Change this */
 						"                                  "
 						"                                  "
 						"                                  "
