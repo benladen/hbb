@@ -1,8 +1,8 @@
 #include "srvnet.h"
 
-static int networkRunThread(int, void*);
+static int networkRunThread(SceSize, void*);
 
-static char version[3] = "0.1";
+static char version[3] = "0.2";
 static int ms15 = 15000000;
 struct netInfo netinf;
 
@@ -11,7 +11,7 @@ int initConnection(char *addr, unsigned short port) {
 	
 	netinf.addr = addr;
 	netinf.port = port;
-	netinf.networkThreadId = sceKernelCreateThread("networkThread", (void*)&networkRunThread, 0x10000100, 0x10000, 0, 0, NULL);
+	netinf.networkThreadId = sceKernelCreateThread("networkThread", &networkRunThread, 0x10000100, 0x10000, 0, 0, NULL);
 	if (netinf.networkThreadId < 0) {
 		debugMessage("error");
 		return netinf.networkThreadId;
@@ -26,6 +26,7 @@ int endConnection(void) {
 	if (netinf.initialized == 1) {
 		if (netinf.status == 1) {
 			netinf.status = -1;
+			netinf.recvWaiting = 0;
 			sceNetSocketAbort(netinf.serverSocketFD, 0);
 			sceKernelWaitThreadEnd(netinf.networkThreadId, NULL, NULL);
 			sceNetShutdown(netinf.serverSocketFD, SCE_NET_SHUT_RDWR);
@@ -39,13 +40,14 @@ int endConnection(void) {
 	return 0;
 }
 
-static int networkRunThread(int args, void *argp) {
-	int rtn;
+static int networkRunThread(SceSize args, void *argp) {
+	unsigned int rtn;
 	int i = 0;
 	SceNetSockaddrIn sockAddrIn;
 	char *sendVer;
 	struct netInfo *netinfp;
 	netinfp = *(struct netInfo**)(argp);
+	(void)args;
 	while (1) {
 		if (netinfp->status == 0) {
 			debugMessage("initConnection connecting...");
@@ -87,7 +89,7 @@ static int networkRunThread(int args, void *argp) {
 		}
 		else if (netinfp->status == 1) {
 			rtn = sceNetRecv(netinfp->serverSocketFD, &(netinfp->recvtmp), 65535, 0);
-			if (rtn < 0) {
+			if ((signed int)rtn < 0) {
 				if (netinfp->status < 0) {
 					break;
 				}
@@ -115,8 +117,10 @@ static int networkRunThread(int args, void *argp) {
 
 int netSendData(char tkn1, char tkn2, char *data, size_t ds) {
 	int len = sceNetHtonl(ds+6);
+	unsigned int rtn;
 	if (netinf.initialized == 1) {
-		if (sceNetSend(netinf.serverSocketFD, &len, 4, 0) == SCE_NET_ERROR_EPIPE) {
+		rtn = sceNetSend(netinf.serverSocketFD, &len, 4, 0);
+		if (rtn == SCE_NET_ERROR_EPIPE) {
 			netinf.status = 0;
 		}
 		sceNetSend(netinf.serverSocketFD, &tkn1, 1, 0);

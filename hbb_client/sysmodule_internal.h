@@ -20,7 +20,7 @@ extern "C" {
 
 /* module IDs */
 enum {
-	SCE_SYSMODULE_PROMOTER_UTIL = 0x80000024
+	SCE_SYSMODULE_PROMOTER_UTIL = -2147483612 /* 0x80000024 */
 };
 
 int sceSysmoduleLoadModuleInternal(SceUInt32 id);

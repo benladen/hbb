@@ -12,8 +12,8 @@ LIBS = -lSceKernel_stub -lSceDisplay_stub -lSceGxm_stub -lSceSysmodule_stub \
 
 PREFIX  = arm-vita-eabi
 CC      = $(PREFIX)-gcc
-CFLAGS  = -Wl,-q -Wall -O0
-#CFLAGS  = -Wl,-q -Wall -O0 -Wextra -std=c89 -pedantic -Wmissing-prototypes -Wstrict-prototypes -Wold-style-definition
+#CFLAGS  = -Wl,-q -Wall -O0
+CFLAGS  = -Wl,-q -Wall -O0 -Wextra -std=c89 -pedantic -Wmissing-prototypes -Wstrict-prototypes -Wold-style-definition
 ASFLAGS = $(CFLAGS)
 
 all: $(TARGET).vpk

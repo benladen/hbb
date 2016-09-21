@@ -122,20 +122,25 @@ static const SceGxmProgramParameter *gxmColorWvpParam = NULL;
 static const SceGxmProgramParameter *gxmTextureWvpParam = NULL;
 
 static void _graphicsDebugMessage(char *text) {
-		#ifdef PSP2_DEBUG_GRAPHICS
-			#ifdef hasDebugMessage
-				debugMessage(text);
-			#endif
+	#ifdef PSP2_DEBUG_GRAPHICS
+		#ifdef hasDebugMessage
+			debugMessage(text);
 		#endif
+	#else
+		(void)text;
+	#endif
 }
 
 static void _graphicsDebugMessageWithInt(char *text, int i) {
-		#ifdef PSP2_DEBUG_GRAPHICS
-			#ifdef hasDebugMessage
-				debugMessage(text);
-				debugPrintInt(i);
-			#endif
+	#ifdef PSP2_DEBUG_GRAPHICS
+		#ifdef hasDebugMessage
+			debugMessage(text);
+			debugPrintInt(i);
 		#endif
+	#else
+		(void)text;
+		(void)i;
+	#endif
 }
 
 static float graphicsCosf(float f) {

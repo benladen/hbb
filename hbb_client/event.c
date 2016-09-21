@@ -115,7 +115,7 @@ static char installStatus = 0; /* 0 = Downloading, 1 = Installing, 2 = Finished 
 static unsigned int installChunkCount = 0;
 static unsigned int installExpectedChunkCount = 0;
 static char installPercent = 0;
-static unsigned int installPercentMax = 4294967295ui;
+static unsigned int installPercentMax = 4294967295U;
 static int installResult = -1;
 static struct _packageInfo *installPkgInfo = NULL;
 static struct _fileInfoList *installCurFile = NULL;
@@ -172,7 +172,7 @@ static void downloadPackage(unsigned int id) {
 	installChunkCount = 0;
 	installExpectedChunkCount = 0;
 	installPercent = 0;
-	installPercentMax = 4294967295ui;
+	installPercentMax = 4294967295U;
 	installResult = -1;
 	
 	waitingOnData = 1;
@@ -215,7 +215,7 @@ static int writeHeadBinFile(void) {
 	char *fileData = NULL;
 	char *name;
 	char *value;
-	int i;
+	unsigned int i;
 	struct SFOHeader *header;
 	struct SFOEntry *entry;
 
@@ -397,30 +397,37 @@ int eventUpdate(void) {
 	if (breakLoop) {
 		return -1;
 	}
-	if (netinf.status < 0) {
+	if (netinf.initialized == 1) {
+		if (netinf.status < 0) {
+			if (scrn != 0) {
+				scrn = 0;
+				debugTextClear(textLayer);
+			}
+			debugTextPrint(textLayer, "Connection failed.", 360, 300, DBGTXT_C7, DBGTXT_C0, DBGTXT_SMALL);
+			showLoadingTex = 0;
+		}
+		if (netinf.status == 1 && netConnectFinished == 1) {
+			if (sceKernelGetProcessTimeWide() - awakeTick >= (10000000)) {
+				netSendData(2, 2, NULL, 0);
+				awakeTick = sceKernelGetProcessTimeWide();
+			}
+			if (ndCal == NULL && waitingOnData == 0) {
+				waitingOnData = 1;
+				showLoadingTex = 1;
+				netSendData(3, 2, "\x00", 1);
+			}
+		}
+	}
+	else {
 		if (scrn != 0) {
 			scrn = 0;
-			debugTextClear(textLayer);
-		}
-		debugTextPrint(textLayer, "Connection failed.", 360, 300, DBGTXT_C7, DBGTXT_C0, DBGTXT_SMALL);
-		showLoadingTex = 0;
-	}
-	if (netinf.status == 1 && netConnectFinished == 1) {
-		if (sceKernelGetProcessTimeWide() - awakeTick >= (10000000)) {
-			netSendData(2, 2, NULL, 0);
-			awakeTick = sceKernelGetProcessTimeWide();
-		}
-		if (ndCal == NULL && waitingOnData == 0) {
-			waitingOnData = 1;
-			showLoadingTex = 1;
-			netSendData(3, 2, "\x00", 1);
 		}
 	}
 	if (scrn == 2 && waitingOnData == 0) {
 		struct _itemList *nil = ndItl;
-		int skipSel = scrnIlSel;
-		int skip = 0;
-		int s = 0;
+		unsigned int skipSel = scrnIlSel;
+		unsigned int skip = 0;
+		unsigned int s = 0;
 		int netInt = 0;
 		char netIntChar[4];
 		while (skipSel >= 4) {
@@ -461,7 +468,7 @@ int eventUpdate(void) {
 		struct _itemList *nil = ndItl;
 		int netInt = 0;
 		char netIntChar[4];
-		int i = 0;
+		unsigned int i = 0;
 		while (nil != NULL) {
 			if (i == scrnIlSel) {
 				if (nil->iconStatus == 0) {
@@ -496,9 +503,9 @@ int eventUpdate(void) {
 		int state = 1;
 		int result = 0;
 		uint32_t ptr[256] = {0};
+		uint32_t scepaf_argp[] = {0x400000, 60000, 0x40000, 0, 0};
 		ptr[0] = 0;
 		ptr[1] = (uint32_t)&ptr[0];
-		uint32_t scepaf_argp[] = {0x400000, 60000, 0x40000, 0, 0};
 		sceSysmoduleLoadModuleInternalWithArg(0x80000008, sizeof(scepaf_argp), scepaf_argp, ptr);
 		
 		writeHeadBinFile();
@@ -525,7 +532,7 @@ int eventUpdate(void) {
 			struct _itemList *nil = ndItl;
 			int netInt = 0;
 			char netIntChar[4];
-			int i = 0;
+			unsigned int i = 0;
 			while (nil != NULL) {
 				if (i == scrnIlSel) {
 					netInt = sceNetHtonl(nil->id);
@@ -570,7 +577,6 @@ int eventDraw(void) {
 		graphicsDrawRectangle(0, 512, PSP2_DISPLAY_WIDTH, 32, 0xFF2F2F2F);
 		graphicsDrawRectangle(15, (scrnClSel*32)+42, 930, 32, 0xFF2F2F2F);
 		if (scrnTextNeedRefresh == 1) {
-			/*debugTextPrint(textLayer, ">", 15, (scrnClSel*32)+42, DBGTXT_C2, DBGTXT_C0, DBGTXT_LARGE);*/
 			debugTextPrint(textLayer, "Press X to select", 5, 522, DBGTXT_C7, DBGTXT_C_CLEAR, DBGTXT_SMALL);
 		}
 		scrnTextNeedRefresh = 0;
@@ -578,9 +584,9 @@ int eventDraw(void) {
 	else if (scrn == 2) {
 		struct _itemList *nil = ndItl;
 		int y = 0;
-		int s = 0;
-		int skipSel = scrnIlSel;
-		int skip = 0;
+		unsigned int s = 0;
+		unsigned int skipSel = scrnIlSel;
+		unsigned int skip = 0;
 		while (skipSel >= 4) {
 			++skip;
 			skipSel -= 1;
@@ -647,7 +653,7 @@ int eventDraw(void) {
 	}
 	else if (scrn == 3) {
 		struct _itemList *nil = ndItl;
-		int i = 0;
+		unsigned int i = 0;
 		float r = 0.0f;
 		while (nil != NULL) {
 			if (i == scrnIlSel) {
@@ -743,7 +749,7 @@ int eventDraw(void) {
 	}
 	graphicsDrawTexture(textLayerTex);
 	if (dialogDisplay) {
-		int i = 0;
+		size_t i = 0;
 		size_t lc = 0;
 		char l = 0;
 		char dialogLine[33];
@@ -814,7 +820,7 @@ int eventButtonDown(int button) {
 			debugTextClear(dialogText);
 			if (scrn == 3) {
 				struct _itemList *nil = ndItl;
-				int i = 0;
+				unsigned int i = 0;
 				while (nil != NULL) {
 					if (i == scrnIlSel) {
 						downloadPackage(nil->id);
@@ -822,6 +828,9 @@ int eventButtonDown(int button) {
 					nil = nil->next;
 					++i;
 				}
+			}
+			else if (scrn == 0) {
+				breakLoop = 1;
 			}
 		}
 		if (button == SCE_CTRL_CIRCLE) {
@@ -887,7 +896,7 @@ int eventButtonDown(int button) {
 				struct _itemList *nil = ndItl;
 				int netInt = 0;
 				char netIntChar[4];
-				int i = 0;
+				unsigned int i = 0;
 				while (nil != NULL) {
 					if (i == scrnIlSel) {
 						netInt = sceNetHtonl(nil->id);
@@ -903,7 +912,7 @@ int eventButtonDown(int button) {
 			}
 			if (scrn == 3 && waitingOnData == 0) {
 				struct _itemList *nil = ndItl;
-				int i = 0;
+				unsigned int i = 0;
 				while (nil != NULL) {
 					if (i == scrnIlSel) {
 						if (nil->isSafeHomebrew == 0) {
@@ -954,7 +963,7 @@ int eventButtonDown(int button) {
 				struct _itemList *nil = ndItl;
 				int netInt = 0;
 				char netIntChar[4];
-				int i = 0;
+				unsigned int i = 0;
 				if (scrnIlSel > 0) {
 					--scrnIlSel;
 					while (nil != NULL) {
@@ -977,7 +986,7 @@ int eventButtonDown(int button) {
 				struct _itemList *nil = ndItl;
 				int netInt = 0;
 				char netIntChar[4];
-				int i = 0;
+				unsigned int i = 0;
 				if (scrnIlSel < scrnIlMaxSel-1) {
 					++scrnIlSel;
 					while (nil != NULL) {
@@ -1000,17 +1009,21 @@ int eventButtonDown(int button) {
 }
 
 int eventButtonUp(int button) {
+	(void)button;
 	return 0;
 }
 
 int eventAnalog(char lr, unsigned char x, unsigned char y) {
+	(void)lr;
+	(void)x;
+	(void)y;
 	return 0;
 }
 
 int eventTouch(char side, int x, int y) {
 	if (side == 0 && scrn == 1 && waitingOnData == 0) {
 		int ychk = 42;
-		int i = 0;
+		char i = 0;
 		for (; i < scrnClMaxSel; i++) {
 			if ((y > ychk && y < ychk+32) && scrnClSel != i) {
 				scrnClSel = i;
@@ -1019,7 +1032,7 @@ int eventTouch(char side, int x, int y) {
 			ychk += 32;
 		}
 	}
-	if (side == 1 && scrn == 3 && waitingOnData == 0) {
+	else if (side == 1 && scrn == 3 && waitingOnData == 0) {
 		if (x < PSP2_DISPLAY_WIDTH/2) {
 			eventButtonDown(SCE_CTRL_LEFT);
 		}
@@ -1143,6 +1156,15 @@ int eventNetworkMsg(char ev1, char ev2, char *data, size_t len) {
 		else if (ev2 == 7) { /* IP address Is Banned */
 		}
 		else if (ev2 == 8) { /* Update Required */
+			endConnection();
+			debugTextClear(textLayer);
+			if (dialogDisplay != 0 && dialogFreeContents == 1 && dialogContents != NULL) {
+				free(dialogContents);
+			}
+			dialogDisplay = 1;
+			dialogType = 0;
+			dialogFreeContents = 0;
+			dialogContents = "Update required.";
 		}
 		else {
 			debugMessage("Unknown network data:");
@@ -1549,7 +1571,7 @@ int eventNetworkMsg(char ev1, char ev2, char *data, size_t len) {
 							prvc = fileName[i+1];
 							fileName[i+1] = 0;
 							mkfile = sceIoMkdir(fileName, 0777);
-							if (mkfile < 0 && mkfile != 0x80010011) {
+							if (mkfile < 0 && (unsigned int)mkfile != 0x80010011) {
 								debugMessage("Error on sceIoMkdir, returned:");
 								debugPrintInt(mkfile);
 							}
@@ -1668,6 +1690,7 @@ int eventNetworkMsg(char ev1, char ev2, char *data, size_t len) {
 }
 
 int eventNetworkMisc(int ev) {
+	(void)ev;
 	return 0;
 }
 

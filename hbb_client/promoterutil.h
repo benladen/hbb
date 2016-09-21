@@ -8,8 +8,8 @@ extern "C" {
 #endif
 
 typedef struct ScePromoterUtilityLAUpdate {
-	char titleid[12]; // target app
-	char path[128]; // directory of extracted LA update data
+	char titleid[12]; /* target app */
+	char path[128]; /* directory of extracted LA update data */
 } ScePromoterUtilityLAUpdate;
 
 int scePromoterUtilityInit(void);

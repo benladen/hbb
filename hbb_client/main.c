@@ -77,7 +77,7 @@ void debugPrintInt(int i) {
 
 void debugPrintHex(char *data, size_t length) {
 	char *temp = (char*)calloc((length*2)+1, 1);
-	int i = 0;
+	size_t i = 0;
 	for (; i < length; i++) {
 		sprintf(temp+i*2, "%02X", data[i]);
 	}
@@ -234,6 +234,7 @@ static void _deleteDirectoryTreeFolders(char *path, int depth) {
 
 int main(void) {
 	int i;
+	unsigned int j;
 	int netStatusPrev = 0;
 	SceCtrlData ctrlData;
 	SceTouchData touchFront;
@@ -309,30 +310,32 @@ int main(void) {
 		ctrlLyPrev = ctrlData.ly;
 		ctrlRxPrev = ctrlData.rx;
 		ctrlRyPrev = ctrlData.ry;
-		for (i = 0; i < touchFront.reportNum; i++) {
-			eventTouch(0, posAdj(touchFront.report[i].x, panelInfoFront.minAaX, panelInfoFront.maxAaX, PSP2_DISPLAY_WIDTH),
-						  posAdj(touchFront.report[i].y, panelInfoFront.minAaY, panelInfoFront.maxAaY, PSP2_DISPLAY_HEIGHT));
+		for (j = 0; j < touchFront.reportNum; j++) {
+			eventTouch(0, posAdj(touchFront.report[j].x, panelInfoFront.minAaX, panelInfoFront.maxAaX, PSP2_DISPLAY_WIDTH),
+						  posAdj(touchFront.report[j].y, panelInfoFront.minAaY, panelInfoFront.maxAaY, PSP2_DISPLAY_HEIGHT));
 		}
-		for (i = 0; i < touchBack.reportNum; i++) {
-			eventTouch(1, posAdj(touchBack.report[i].x, panelInfoBack.minAaX, panelInfoBack.maxAaX, PSP2_DISPLAY_WIDTH),
-						  posAdj(touchBack.report[i].y, panelInfoBack.minAaY, panelInfoBack.maxAaY, PSP2_DISPLAY_HEIGHT));
+		for (j = 0; j < touchBack.reportNum; j++) {
+			eventTouch(1, posAdj(touchBack.report[j].x, panelInfoBack.minAaX, panelInfoBack.maxAaX, PSP2_DISPLAY_WIDTH),
+						  posAdj(touchBack.report[j].y, panelInfoBack.minAaY, panelInfoBack.maxAaY, PSP2_DISPLAY_HEIGHT));
 		}
 		
-		if (netinf.status != netStatusPrev) {
-			if (netStatusPrev == 0 && netinf.status == 1) {
-				eventNetworkConnect();
-				netStatusPrev = netinf.status;
+		if (netinf.initialized == 1) {
+			if (netinf.status != netStatusPrev) {
+				if (netStatusPrev == 0 && netinf.status == 1) {
+					eventNetworkConnect();
+					netStatusPrev = netinf.status;
+				}
+				if (netStatusPrev == 1 && netinf.status == 0) {
+					eventNetworkDisconnect();
+					netStatusPrev = netinf.status;
+				}
 			}
-			if (netStatusPrev == 1 && netinf.status == 0) {
-				eventNetworkDisconnect();
-				netStatusPrev = netinf.status;
-			}
-		}
-		if (netinf.recvtmpSize != 0 && netinf.status == 1) {
-			if (netinf.recvWaiting == 1) {
-				eventNetworkRecv(netinf.recvtmp, netinf.recvtmpSize);
-				netinf.recvtmpSize = 0;
-				netinf.recvWaiting = 0;
+			if (netinf.recvtmpSize != 0 && netinf.status == 1) {
+				if (netinf.recvWaiting == 1) {
+					eventNetworkRecv(netinf.recvtmp, netinf.recvtmpSize);
+					netinf.recvtmpSize = 0;
+					netinf.recvWaiting = 0;
+				}
 			}
 		}
 		
