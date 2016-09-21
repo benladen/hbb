@@ -90,6 +90,14 @@ int sleep(unsigned int sec) {
 	return 0;
 }
 
+float posAdj(SceInt16 t, SceInt16 minPos, SceInt16 maxPos, SceInt32 maxScr) {
+	float ft = t; 
+	float fminPos = minPos;
+	float fmaxPos = maxPos;
+	float fmaxScr = maxScr;
+	return (ft-fminPos)*(fmaxScr/(fmaxPos-fminPos));
+}
+
 void deleteDirectoryTreeFiles(char *path, int depth) {
 	char *subPath;
 	char *tmpText;
@@ -228,19 +236,34 @@ int main(void) {
 	int i;
 	int netStatusPrev = 0;
 	SceCtrlData ctrlData;
+	SceTouchData touchFront;
+	SceTouchData touchBack;
+	SceTouchPanelInfo panelInfoFront;
+	SceTouchPanelInfo panelInfoBack;
 	unsigned int ctrlButtonsPrev;
 	unsigned char ctrlLxPrev;
 	unsigned char ctrlLyPrev;
 	unsigned char ctrlRxPrev;
 	unsigned char ctrlRyPrev;
+	
+	memset(&netinf, 0, sizeof(netinf));
+	memset(&touchFront, 0, sizeof(touchFront));
+	memset(&touchBack, 0, sizeof(touchBack));
+	memset(&panelInfoFront, 0, sizeof(panelInfoFront));
+	memset(&panelInfoBack, 0, sizeof(panelInfoBack));
+	
 	sceCtrlSetSamplingMode(SCE_CTRL_MODE_ANALOG);
+	sceTouchSetSamplingState(SCE_TOUCH_PORT_FRONT, SCE_TOUCH_SAMPLING_STATE_START);
+	sceTouchSetSamplingState(SCE_TOUCH_PORT_BACK, SCE_TOUCH_SAMPLING_STATE_START);
+	sceTouchGetPanelInfo(SCE_TOUCH_PORT_FRONT, &panelInfoFront);
+	sceTouchGetPanelInfo(SCE_TOUCH_PORT_BACK, &panelInfoBack);
+	
 	sceCtrlPeekBufferPositive(0, &ctrlData, 1);
 	ctrlButtonsPrev = ctrlData.buttons;
 	ctrlLxPrev = ctrlData.lx;
 	ctrlLyPrev = ctrlData.ly;
 	ctrlRxPrev = ctrlData.rx;
 	ctrlRyPrev = ctrlData.ry;
-	memset(&netinf, 0, sizeof(netinf));
 	
 	#ifdef PSP2_DEBUG_ALL
 		logFile = sceIoOpen("ux0:/data/RTST-DEBUG.LOG", SCE_O_WRONLY|SCE_O_CREAT, 0777);
@@ -259,6 +282,8 @@ int main(void) {
 	
 	while (1) {
 		sceCtrlPeekBufferPositive(0, &ctrlData, 1);
+		sceTouchPeek(SCE_TOUCH_PORT_FRONT, &touchFront, 1);
+		sceTouchPeek(SCE_TOUCH_PORT_BACK, &touchBack, 1);
 		
 		for (i = 1; i < 65536; i = i * 2) {
 			if (ctrlData.buttons & i) {
@@ -284,6 +309,14 @@ int main(void) {
 		ctrlLyPrev = ctrlData.ly;
 		ctrlRxPrev = ctrlData.rx;
 		ctrlRyPrev = ctrlData.ry;
+		for (i = 0; i < touchFront.reportNum; i++) {
+			eventTouch(0, posAdj(touchFront.report[i].x, panelInfoFront.minAaX, panelInfoFront.maxAaX, PSP2_DISPLAY_WIDTH),
+						  posAdj(touchFront.report[i].y, panelInfoFront.minAaY, panelInfoFront.maxAaY, PSP2_DISPLAY_HEIGHT));
+		}
+		for (i = 0; i < touchBack.reportNum; i++) {
+			eventTouch(1, posAdj(touchBack.report[i].x, panelInfoBack.minAaX, panelInfoBack.maxAaX, PSP2_DISPLAY_WIDTH),
+						  posAdj(touchBack.report[i].y, panelInfoBack.minAaY, panelInfoBack.maxAaY, PSP2_DISPLAY_HEIGHT));
+		}
 		
 		if (netinf.status != netStatusPrev) {
 			if (netStatusPrev == 0 && netinf.status == 1) {

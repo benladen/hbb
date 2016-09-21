@@ -522,6 +522,23 @@ int eventUpdate(void) {
 	}
 	else if (scrn == 4 && installStatus == 2) {
 		if (sceKernelGetProcessTimeWide() - installFinishedTick >= (3000000)) {
+			struct _itemList *nil = ndItl;
+			int netInt = 0;
+			char netIntChar[4];
+			int i = 0;
+			while (nil != NULL) {
+				if (i == scrnIlSel) {
+					netInt = sceNetHtonl(nil->id);
+					memcpy(&netIntChar[0], &netInt, 4);
+					netSendData(3, 5, &netIntChar[0], 4);
+					waitingOnData = 1;
+					showLoadingTex = 1;
+					break;
+				}
+				nil = nil->next;
+				++i;
+			}
+				
 			debugTextClear(textLayer);
 			scrnTextNeedRefresh = 1;
 			scrn = 3;
@@ -544,15 +561,16 @@ int eventDraw(void) {
 		}
 		while (ncl != NULL) {
 			if (scrnTextNeedRefresh == 1) {
-				debugTextPrint(textLayer, " ", 15, y, DBGTXT_C7, DBGTXT_C0, DBGTXT_LARGE);
-				debugTextPrint(textLayer, ncl->name, 33, y, DBGTXT_C7, DBGTXT_C0, DBGTXT_LARGE);
+				debugTextPrint(textLayer, " ", 15, y, DBGTXT_C7, DBGTXT_C_CLEAR, DBGTXT_LARGE);
+				debugTextPrint(textLayer, ncl->name, 33, y, DBGTXT_C7, DBGTXT_C_CLEAR, DBGTXT_LARGE);
 			}
 			ncl = ncl->next;
 			y+=32;
 		}
 		graphicsDrawRectangle(0, 512, PSP2_DISPLAY_WIDTH, 32, 0xFF2F2F2F);
+		graphicsDrawRectangle(15, (scrnClSel*32)+42, 930, 32, 0xFF2F2F2F);
 		if (scrnTextNeedRefresh == 1) {
-			debugTextPrint(textLayer, ">", 15, (scrnClSel*32)+42, DBGTXT_C2, DBGTXT_C0, DBGTXT_LARGE);
+			/*debugTextPrint(textLayer, ">", 15, (scrnClSel*32)+42, DBGTXT_C2, DBGTXT_C0, DBGTXT_LARGE);*/
 			debugTextPrint(textLayer, "Press X to select", 5, 522, DBGTXT_C7, DBGTXT_C_CLEAR, DBGTXT_SMALL);
 		}
 		scrnTextNeedRefresh = 0;
@@ -668,6 +686,12 @@ int eventDraw(void) {
 					debugTextPrint(textLayer, "Rating:", 130, 106, DBGTXT_C7, DBGTXT_C_CLEAR, DBGTXT_SMALL);
 					if (nil->cachedrating == 0) {
 						debugTextPrint(textLayer, "Not Available", 242, 106, DBGTXT_C7, DBGTXT_C_CLEAR, DBGTXT_SMALL);
+					}
+					if (nil->description == NULL || nil->descriptionLength == 0) {
+						debugTextPrint(textLayer, "No description.", 2, 132, DBGTXT_C7, DBGTXT_C_CLEAR, DBGTXT_SMALL);
+					}
+					else {
+						debugTextPrint(textLayer, nil->description, 2, 132, DBGTXT_C7, DBGTXT_C_CLEAR, DBGTXT_SMALL);
 					}
 					
 					debugTextPrint(textLayer, "Press X to install, O to go back, Left/Right for next/previous", 5, 522, DBGTXT_C7, DBGTXT_C_CLEAR, DBGTXT_SMALL);
@@ -980,6 +1004,29 @@ int eventButtonUp(int button) {
 }
 
 int eventAnalog(char lr, unsigned char x, unsigned char y) {
+	return 0;
+}
+
+int eventTouch(char side, int x, int y) {
+	if (side == 0 && scrn == 1 && waitingOnData == 0) {
+		int ychk = 42;
+		int i = 0;
+		for (; i < scrnClMaxSel; i++) {
+			if ((y > ychk && y < ychk+32) && scrnClSel != i) {
+				scrnClSel = i;
+				scrnTextNeedRefresh = 1;
+			}
+			ychk += 32;
+		}
+	}
+	if (side == 1 && scrn == 3 && waitingOnData == 0) {
+		if (x < PSP2_DISPLAY_WIDTH/2) {
+			eventButtonDown(SCE_CTRL_LEFT);
+		}
+		else if (x >= PSP2_DISPLAY_WIDTH/2) {
+			eventButtonDown(SCE_CTRL_RIGHT);
+		}
+	}
 	return 0;
 }
 

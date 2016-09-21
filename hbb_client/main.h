@@ -6,7 +6,7 @@
 	#endif
 #endif
 
-#define PSP2_DEBUG_ALL
+/*define PSP2_DEBUG_ALL*/
 #ifdef PSP2_DEBUG_ALL
 	#define PSP2_DEBUG 5
 	#define PSP2_DEBUG_GRAPHICS
@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <psp2/types.h>
 #include <psp2/ctrl.h>
+#include <psp2/touch.h>
 #include <psp2/power.h>
 #include <psp2/io/fcntl.h>
 #include <psp2/io/dirent.h>
@@ -44,5 +45,6 @@ void debugMessage(char*);
 void debugPrintInt(int);
 void debugPrintHex(char*, size_t);
 int sleep(unsigned int);
-void deleteDirectoryTreeFiles(char *path, int depth);
-void deleteDirectoryTreeFolders(char *path);
+float posAdj(SceInt16, SceInt16, SceInt16, SceInt32);
+void deleteDirectoryTreeFiles(char*, int);
+void deleteDirectoryTreeFolders(char*);
