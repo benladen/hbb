@@ -6,6 +6,7 @@ struct _delTreeDirsFileList {
 	struct _delTreeDirsFileList *next;
 };
 
+char *debugAddress = NULL;
 int debugSocketFD;
 int dbgNetConnected = 0;
 SceUID logFile = -1;
@@ -26,7 +27,7 @@ void initDebugConnection(void) {
         memset(&sockAddrIn, 0, sizeof(sockAddrIn));
         sockAddrIn.sin_family = SCE_NET_AF_INET;
         sockAddrIn.sin_port = sceNetHtons(9877);
-        sceNetInetPton(SCE_NET_AF_INET, "10.0.0.5", &sockAddrIn.sin_addr);
+        sceNetInetPton(SCE_NET_AF_INET, debugAddress, &sockAddrIn.sin_addr);
 		i = sceNetConnect(debugSocketFD, (SceNetSockaddr*)&sockAddrIn, sizeof(sockAddrIn));
         if (i < 0) {
 			debugMessage("sceNetConnect failed:");
@@ -267,6 +268,15 @@ int main(void) {
 	ctrlRyPrev = ctrlData.ry;
 	
 	#ifdef PSP2_DEBUG_ALL
+		logFile = sceIoOpen("app0:/data/dbgaddr.dat", SCE_O_RDONLY, 0777);
+		if (logFile >= 0) {
+			i = sceIoLseek32(logFile, 0, SCE_SEEK_END);
+			sceIoLseek32(logFile, 0, SCE_SEEK_SET);
+			debugAddress = (char*)calloc(1, i+1);
+			sceIoRead(logFile, debugAddress, i);
+			sceIoClose(logFile);
+		}
+		
 		logFile = sceIoOpen("ux0:/data/RTST-DEBUG.LOG", SCE_O_WRONLY|SCE_O_CREAT, 0777);
 		if (logFile < 0) {
 			debugMessage("Error on sceIoOpen, returned:");
@@ -276,7 +286,9 @@ int main(void) {
 
 	networkInit();
 	#ifdef PSP2_DEBUG_ALL
-		initDebugConnection();
+		if (debugAddress != NULL) {
+			initDebugConnection();
+		}
 	#endif
 	graphicsInit(0);
 	eventInit();
@@ -347,6 +359,7 @@ int main(void) {
 		graphicsClearScreen();
 		eventDraw();
 		graphicsEndDrawing();
+		graphicsDrawDialog();
 		graphicsSwapBuffers();
 	}
 	

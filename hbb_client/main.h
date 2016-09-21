@@ -6,6 +6,10 @@
 	#endif
 #endif
 
+#ifdef __STRICT_ANSI__
+	#define inline 
+#endif
+
 /*define PSP2_DEBUG_ALL*/
 #ifdef PSP2_DEBUG_ALL
 	#define PSP2_DEBUG 5
@@ -23,6 +27,8 @@
 #include <psp2/ctrl.h>
 #include <psp2/touch.h>
 #include <psp2/power.h>
+#include <psp2/common_dialog.h>
+#include <psp2/ime_dialog.h>
 #include <psp2/io/fcntl.h>
 #include <psp2/io/dirent.h>
 #include <psp2/moduleinfo.h>

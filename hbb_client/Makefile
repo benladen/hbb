@@ -8,7 +8,8 @@ SHADERS = shader/clear_v_gxp.o shader/clear_f_gxp.o \
 LIBS = -lSceKernel_stub -lSceDisplay_stub -lSceGxm_stub -lSceSysmodule_stub \
        -lSceCtrl_stub -lSceTouch_stub -lSceMotion_stub -lScePgf_stub \
        -lSceNet_stub -lSceNetCtl_stub -lSceAppUtil_stub -lSceCommonDialog_stub \
-       -lSceAudio_stub -lSceRtc_stub -lSceCamera_stub -lScePower_stub -lScePromoterUtil_stub -lc -lm
+       -lSceAudio_stub -lSceRtc_stub -lSceCamera_stub -lScePower_stub \
+       -lScePromoterUtil_stub -lSceIme_stub -lc -lm
 
 PREFIX  = arm-vita-eabi
 CC      = $(PREFIX)-gcc

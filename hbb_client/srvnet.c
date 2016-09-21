@@ -103,7 +103,7 @@ static int networkRunThread(SceSize args, void *argp) {
 			else if (rtn == 0) {
 				sceNetShutdown(netinfp->serverSocketFD, SCE_NET_SHUT_RDWR);
 				sceNetSocketClose(netinfp->serverSocketFD);
-				netinfp->status = 0;
+				netinfp->status = -1;
 			}
 			else {
 				netinfp->recvtmpSize = rtn;

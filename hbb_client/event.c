@@ -75,7 +75,7 @@ struct SFOEntry {
 
 static char breakLoop = 0;
 
-int showDbgScreen = 1;
+int showDbgScreen = 0;
 int showLoadingTex = 1;
 static struct dbgText *textLayer;
 static struct dbgText *dialogText;
@@ -104,6 +104,7 @@ static char scrnClMaxSel = 0;
 static unsigned int scrnIlSel = 0;
 static unsigned int scrnIlMaxSel = 0;
 
+static char dialogID = 0;
 static char dialogDisplay = 0;
 static char dialogType = 0; /* 0 = Information, 1 = Information Yes/No, 2 = Warning, 3 = Warning Yes/No */
 static char dialogResult = 0; /* 0 = OK/Yes, 1 = No */
@@ -120,11 +121,33 @@ static int installResult = -1;
 static struct _packageInfo *installPkgInfo = NULL;
 static struct _fileInfoList *installCurFile = NULL;
 static SceUInt64 installFinishedTick;
+static unsigned char isSafeHomebrewChk = 0;
+
+static SceWChar16 *imeTitle = NULL;
+static SceWChar16 *imeInitialText = NULL;
+static SceWChar16 imeInputText[SCE_IME_DIALOG_MAX_TEXT_LENGTH+1];
+static char *imeInputText8 = NULL;
+static SceUInt8 imeInit = 0;
+static SceAppUtilInitParam appUtilInit;
+static SceAppUtilBootParam appUtilBoot;
+static SceCommonDialogConfigParam commonCfgParam;
+static SceCommonDialogStatus imeDialogStatus;
+static SceImeDialogParam imeDialogParam;
+static SceImeDialogResult imeResult;
+
+static char *configIP = NULL;
+static unsigned short configPort = 40111;
+static unsigned char configUpdate = 0;
+static unsigned char configFrontTouchscreen = 1;
+static unsigned char configBackTouchscreen = 1;
 
 static void clearNdItl(void);
 static void downloadPackage(unsigned int);
 static void preparePtmp(void);
 static int writeHeadBinFile(void);
+static SceWChar16* convertChar8to16(char*);
+static char* convertChar16to8(SceWChar16*, size_t);
+static int loadConfig(void);
 
 static void clearNdItl(void) {
 	struct _itemList *cil = ndItl;
@@ -345,7 +368,127 @@ static int writeHeadBinFile(void) {
 	return 0;
 }
 
+static SceWChar16* convertChar8to16(char *text) {
+	SceWChar16 *result = (SceWChar16*)calloc(strlen(text)+1, sizeof(SceWChar16));
+	size_t tl = strlen(text);
+	size_t i = 0;
+	if (result == NULL) {
+		return NULL;
+	}
+	while (i < tl) {
+		result[i] = (SceWChar16)text[i];
+		++i;
+	}
+	return result;
+}
+
+static char* convertChar16to8(SceWChar16 *text, size_t length) {
+	char *result;
+	size_t resLen = 0;
+	size_t i = 0;
+	char c = (char)text[0];
+	while (c != 0) { /* Get Length */
+		if (i > length) {
+			return NULL;
+		}
+		c = (char)text[i];
+		++resLen;
+		++i;
+	}
+	i = 0;
+	c = (char)text[0];
+	result = (char*)calloc(resLen+1, sizeof(char));
+	if (result == NULL) {
+		return NULL;
+	}
+	while (c != 0) { /* Copy Text */
+		if (i > length) {
+			free(result);
+			return NULL;
+		}
+		c = (char)text[i];
+		result[i] = c;
+		++i;
+	}
+	return result;
+}
+
+static int loadConfig(void) {
+	SceUID cfgFile;
+	char cfgMagic[7];
+	unsigned char cfgVersion = 0;
+	unsigned short entryCount = 0;
+	unsigned char entryID = 0;
+	unsigned short entryLength = 0;
+	
+	unsigned short entryUnsignedShort = 0;
+	unsigned char entryUnsignedChar = 0;
+	char *entryCharPtr = NULL;
+	cfgFile = sceIoOpen("app0:/data/config.dat", SCE_O_RDONLY, 0777);
+	if (cfgFile >= 0) {
+		sceIoRead(cfgFile, &cfgMagic[0], 6);
+		cfgMagic[6] = 0;
+		sceIoRead(cfgFile, &cfgVersion, 1);
+		if (cfgVersion > 1) {
+			sceIoClose(cfgFile);
+			return 2;
+		}
+		sceIoRead(cfgFile, &entryCount, 2);
+		while (entryCount > 0) {
+			sceIoRead(cfgFile, &entryID, 1);
+			sceIoRead(cfgFile, &entryLength, 2);
+			if (entryID == 1) { /* IP */
+				sceIoRead(cfgFile, &entryUnsignedShort, 2);
+				entryCharPtr = (char*)calloc(1, entryUnsignedShort+1);
+				sceIoRead(cfgFile, entryCharPtr, entryUnsignedShort);
+				configIP = entryCharPtr;
+			}
+			else if (entryID == 2) { /* Port */
+				sceIoRead(cfgFile, &entryUnsignedShort, 2);
+				configPort = entryUnsignedShort;
+			}
+			else if (entryID == 3) { /* Download update */
+				sceIoRead(cfgFile, &entryUnsignedChar, 1);
+				configUpdate = entryUnsignedChar;
+			}
+			else if (entryID == 4) { /* Use front touchscreen */
+				sceIoRead(cfgFile, &entryUnsignedChar, 1);
+				configFrontTouchscreen = entryUnsignedChar;
+			}
+			else if (entryID == 5) { /* Use back touchpad */
+				sceIoRead(cfgFile, &entryUnsignedChar, 1);
+				configBackTouchscreen = entryUnsignedChar;
+			}
+			else {
+				sceIoLseek32(cfgFile, entryLength-3, SCE_SEEK_CUR);
+			}
+			--entryCount;
+		}
+		sceIoClose(cfgFile);
+	}
+	else {
+		debugMessage("Error on sceIoOpen, returned:");
+		debugPrintInt(cfgFile);
+		return 1;
+	}
+	return 0;
+}
+
 int eventInit(void) {
+	#ifdef PSP2_DEBUG_ALL
+		showDbgScreen = 1;
+	#endif
+	loadConfig();
+	memset(&appUtilInit, 0, sizeof(appUtilInit));
+	memset(&appUtilBoot, 0, sizeof(appUtilBoot));
+	memset(&imeDialogParam, 0, sizeof(imeDialogParam));
+	memset(&commonCfgParam, 0, sizeof(commonCfgParam));
+	appUtilInit.workBufSize = 0;
+	appUtilBoot.attr = 0;
+	appUtilBoot.appVersion = 0;
+	sceAppUtilInit(&appUtilInit, &appUtilBoot);
+	sceCommonDialogSetConfigParam(&commonCfgParam);	
+
 	dbgScrnTex = graphicsCreateTexture(PSP2_DISPLAY_WIDTH, PSP2_DISPLAY_HEIGHT);
 	dbgScreenData = graphicsTextureGetData(dbgScrnTex);
 	memset(dbgScreenData, 0x00, PSP2_DISPLAY_WIDTH*PSP2_DISPLAY_HEIGHT*4);
@@ -375,7 +518,19 @@ int eventInit(void) {
 	loadingTex->y = PSP2_DISPLAY_HEIGHT/2;
 	debugTextPrint(textLayer, "Connecting...", 400, 300, DBGTXT_C7, DBGTXT_C0, DBGTXT_SMALL);
 	debugMessage("Press LTRIGGER to show/hide debug text.");
-	initConnection("10.0.0.5", 40111);
+	if (configIP == NULL) {
+		dialogID = 7;
+		dialogDisplay = 1;
+		dialogType = 2;
+		dialogFreeContents = 0;
+		dialogContents = "The file config.dat is missing\n"
+						 "or the IP address entry is not\n"
+						 "in config.dat.";
+		showLoadingTex = 0;
+	}
+	else {
+		initConnection(configIP, configPort);
+	}
 	return 0;
 }
 
@@ -394,9 +549,11 @@ int eventUpdate(void) {
 	sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DISABLE_AUTO_SUSPEND);
 	sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DISABLE_OLED_OFF);
 	sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DISABLE_OLED_DIMMING);
+	/* Check if exiting */
 	if (breakLoop) {
 		return -1;
 	}
+	/* Check network status */
 	if (netinf.initialized == 1) {
 		if (netinf.status < 0) {
 			if (scrn != 0) {
@@ -423,6 +580,46 @@ int eventUpdate(void) {
 			scrn = 0;
 		}
 	}
+	/* Check IME dialog status */
+	imeDialogStatus = sceImeDialogGetStatus();
+	if (imeDialogStatus == SCE_COMMON_DIALOG_STATUS_FINISHED) {
+		unsigned int rtn;
+		short netShort = 0;
+		char netShortChar[2];
+		char *data = NULL;
+		memset(&imeResult, 0, sizeof(imeResult));
+		rtn = sceImeDialogGetResult(&imeResult);
+		if ((int)rtn < 0) {
+			debugMessage("Error on sceImeDialogGetResult, returned:");
+			debugPrintInt(rtn);
+		}
+		rtn = sceImeDialogTerm();
+		if ((int)rtn < 0) {
+			debugMessage("Error on sceImeDialogTerm, returned:");
+			debugPrintInt(rtn);
+		}
+		if (imeInputText8 != NULL) {
+			free(imeInputText8);
+		}
+		imeInputText8 = convertChar16to8(imeInputText, sizeof(imeInputText));
+
+		if (strlen(imeInputText8) > 0) {
+			netShort = sceNetHtons(strlen(imeInputText8));
+			memcpy(&netShortChar[0], &netShort, 2);
+			data = (char*)calloc(1, strlen(imeInputText8)+3);
+			if (data == NULL) {
+				/* Error */
+			}
+			memcpy(data, &netShortChar[0], 2);
+			memcpy(data+2, imeInputText8, strlen(imeInputText8));
+			netSendData(2, 5, data, strlen(imeInputText8)+3);
+			free(data);
+		}
+		free(imeInputText8);
+		imeInputText8 = NULL;
+		imeInit = 0;
+	}
+	/* scrn 2 */
 	if (scrn == 2 && waitingOnData == 0) {
 		struct _itemList *nil = ndItl;
 		unsigned int skipSel = scrnIlSel;
@@ -464,7 +661,8 @@ int eventUpdate(void) {
 			nil = nil->next;
 		}
 	}
-	if (scrn == 3 && waitingOnData == 0) {
+	/* scrn 3 */
+	else if (scrn == 3 && waitingOnData == 0) {
 		struct _itemList *nil = ndItl;
 		int netInt = 0;
 		char netIntChar[4];
@@ -489,7 +687,8 @@ int eventUpdate(void) {
 			++i;
 		}
 	}
-	if (scrn == 4 && installCurFile != NULL && installStatus == 0 && waitingOnData == 0) {
+	/* scrn 4 download */
+	else if (scrn == 4 && installCurFile != NULL && installStatus == 0 && waitingOnData == 0) {
 		int netInt = 0;
 		char netIntChar[8];
 		netInt = sceNetHtonl(instalItemID);
@@ -499,34 +698,68 @@ int eventUpdate(void) {
 		netSendData(4, 3, &netIntChar[0], 8);
 		waitingOnData = 1;
 	}
+	/* scrn 4 install */
 	else if (scrn == 4 && installPkgInfo != NULL && installStatus == 1 && waitingOnData == 0) {
 		int state = 1;
 		int result = 0;
+		SceUID ebootBin;
+		unsigned char isSafeFile = 255;
 		uint32_t ptr[256] = {0};
 		uint32_t scepaf_argp[] = {0x400000, 60000, 0x40000, 0, 0};
 		ptr[0] = 0;
 		ptr[1] = (uint32_t)&ptr[0];
 		sceSysmoduleLoadModuleInternalWithArg(0x80000008, sizeof(scepaf_argp), scepaf_argp, ptr);
 		
-		writeHeadBinFile();
+		ebootBin = sceIoOpen("ux0:/ptmp/pkg/eboot.bin", SCE_O_RDONLY, 0777);
+		if (ebootBin >= 0) {
+			sceIoLseek32(ebootBin, 0x80, SCE_SEEK_SET);
+			sceIoRead(ebootBin, &isSafeFile, 1);
+			sceIoClose(ebootBin);
+		}
+		else {
+			debugMessage("Error on sceIoOpen, returned:");
+			debugPrintInt(ebootBin);
+		}
 		
-		sceSysmoduleLoadModuleInternal(SCE_SYSMODULE_PROMOTER_UTIL);
-		scePromoterUtilityInit();
+		if (isSafeHomebrewChk == 0) {
+			isSafeHomebrewChk = isSafeFile;
+		}
+		
+		if (isSafeHomebrewChk == isSafeFile) {
+			writeHeadBinFile();
+			
+			sceSysmoduleLoadModuleInternal(SCE_SYSMODULE_PROMOTER_UTIL);
+			scePromoterUtilityInit();
 
-		scePromoterUtilityPromotePkg("ux0:/ptmp/pkg/", 0);
-		while (state) {
-			scePromoterUtilityGetState(&state);
-			sleep(1);
-		} 
-		scePromoterUtilityGetResult(&result);
+			scePromoterUtilityPromotePkg("ux0:/ptmp/pkg/", 0);
+			while (state) {
+				scePromoterUtilityGetState(&state);
+				sleep(1);
+			} 
+			scePromoterUtilityGetResult(&result);
 
-		scePromoterUtilityExit();
-		sceSysmoduleUnloadModuleInternal(SCE_SYSMODULE_PROMOTER_UTIL);
+			scePromoterUtilityExit();
+			sceSysmoduleUnloadModuleInternal(SCE_SYSMODULE_PROMOTER_UTIL);
+		}
+		else {
+			if (dialogDisplay != 0 && dialogFreeContents == 1 && dialogContents != NULL) {
+				free(dialogContents);
+			}
+			dialogID = 1;
+			dialogDisplay = 1;
+			dialogType = 2;
+			dialogFreeContents = 0;
+			dialogContents = "Required permissions in file\n"
+							 "did not match permissions\n"
+							 "reported by server!\n\n"
+							 "Install cancelled.";
+		}
 		installPercent = 1;
 		installStatus = 2;
 		scrnTextNeedRefresh = 1;
 		installFinishedTick = sceKernelGetProcessTimeWide();
 	}
+	/* scrn 4 install finished */
 	else if (scrn == 4 && installStatus == 2) {
 		if (sceKernelGetProcessTimeWide() - installFinishedTick >= (3000000)) {
 			struct _itemList *nil = ndItl;
@@ -808,6 +1041,41 @@ int eventButtonDown(int button) {
 	if (button == SCE_CTRL_LTRIGGER) {
 		showDbgScreen ^= 1;
 	}
+	#ifdef PSP2_DEBUG_ALL
+		if (button == SCE_CTRL_RTRIGGER) {
+			if (imeInit == 0) {
+				unsigned int rtn;
+				imeInit = 1;
+				sceImeDialogParamInit(&imeDialogParam);
+				memset(&imeInputText, 0, sizeof(imeInputText));
+				if (imeTitle != NULL) {
+					free(imeTitle);
+				}
+				if (imeInitialText != NULL) {
+					free(imeInitialText);
+				}
+				
+				imeTitle = convertChar8to16("Command");
+				imeDialogParam.type = SCE_IME_TYPE_DEFAULT;
+				imeInitialText = convertChar8to16("");
+				
+				imeDialogParam.title = imeTitle;
+				imeDialogParam.maxTextLength = (sizeof(imeInputText)/2)-1;
+				imeDialogParam.initialText = imeInitialText;
+				imeDialogParam.inputTextBuffer = imeInputText;
+				rtn = sceImeDialogInit(&imeDialogParam);
+				if ((int)rtn < 0) {
+					debugMessage("Error on sceImeDialogInit, returned:");
+					debugPrintInt(rtn);
+					imeInit = 0;
+				}
+			}
+		}
+	#else
+		(void)imeTitle;
+		(void)imeInitialText;
+		(void)convertChar8to16;
+	#endif
 	if (dialogDisplay) {
 		if (button == SCE_CTRL_CROSS) {
 			if (dialogFreeContents == 1 && dialogContents != NULL) {
@@ -818,7 +1086,7 @@ int eventButtonDown(int button) {
 			dialogFreeContents = 0;
 			dialogContents = NULL;
 			debugTextClear(dialogText);
-			if (scrn == 3) {
+			if (scrn == 3 && dialogID == 2) {
 				struct _itemList *nil = ndItl;
 				unsigned int i = 0;
 				while (nil != NULL) {
@@ -832,6 +1100,7 @@ int eventButtonDown(int button) {
 			else if (scrn == 0) {
 				breakLoop = 1;
 			}
+			dialogID = 0;
 		}
 		if (button == SCE_CTRL_CIRCLE) {
 			if (dialogType == 1 || dialogType == 3) {
@@ -915,10 +1184,12 @@ int eventButtonDown(int button) {
 				unsigned int i = 0;
 				while (nil != NULL) {
 					if (i == scrnIlSel) {
+						isSafeHomebrewChk = nil->isSafeHomebrew;
 						if (nil->isSafeHomebrew == 0) {
 							if (dialogDisplay != 0 && dialogFreeContents == 1 && dialogContents != NULL) {
 								free(dialogContents);
 							}
+							dialogID = 2;
 							dialogDisplay = 1;
 							dialogType = 3;
 							dialogFreeContents = 0;
@@ -930,6 +1201,7 @@ int eventButtonDown(int button) {
 							if (dialogDisplay != 0 && dialogFreeContents == 1 && dialogContents != NULL) {
 								free(dialogContents);
 							}
+							dialogID = 2;
 							dialogDisplay = 1;
 							dialogType = 3;
 							dialogFreeContents = 0;
@@ -1021,6 +1293,12 @@ int eventAnalog(char lr, unsigned char x, unsigned char y) {
 }
 
 int eventTouch(char side, int x, int y) {
+	if (configFrontTouchscreen == 0 && side == 0) {
+		return 1;
+	}
+	if (configBackTouchscreen == 0 && side == 1) {
+		return 1;
+	}
 	if (side == 0 && scrn == 1 && waitingOnData == 0) {
 		int ychk = 42;
 		char i = 0;
@@ -1114,6 +1392,7 @@ int eventNetworkMsg(char ev1, char ev2, char *data, size_t len) {
 			if (dialogDisplay != 0 && dialogFreeContents == 1 && dialogContents != NULL) {
 				free(dialogContents);
 			}
+			dialogID = 3;
 			dialogDisplay = 1;
 			dialogType = 0;
 			dialogFreeContents = 1;
@@ -1130,6 +1409,7 @@ int eventNetworkMsg(char ev1, char ev2, char *data, size_t len) {
 			if (dialogDisplay != 0 && dialogFreeContents == 1 && dialogContents != NULL) {
 				free(dialogContents);
 			}
+			dialogID = 4;
 			dialogDisplay = 1;
 			dialogType = 2;
 			dialogFreeContents = 1;
@@ -1146,6 +1426,7 @@ int eventNetworkMsg(char ev1, char ev2, char *data, size_t len) {
 			if (dialogDisplay != 0 && dialogFreeContents == 1 && dialogContents != NULL) {
 				free(dialogContents);
 			}
+			dialogID = 5;
 			dialogDisplay = 1;
 			dialogType = 0;
 			dialogFreeContents = 1;
@@ -1161,6 +1442,7 @@ int eventNetworkMsg(char ev1, char ev2, char *data, size_t len) {
 			if (dialogDisplay != 0 && dialogFreeContents == 1 && dialogContents != NULL) {
 				free(dialogContents);
 			}
+			dialogID = 6;
 			dialogDisplay = 1;
 			dialogType = 0;
 			dialogFreeContents = 0;
