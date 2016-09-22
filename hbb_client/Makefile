@@ -20,7 +20,7 @@ ASFLAGS = $(CFLAGS)
 all: $(TARGET).vpk
 
 %.vpk: eboot.bin
-	vita-mksfoex -s TITLE_ID=$(TITLE_ID) "$(TARGET)" output/param.sfo
+	vita-mksfoex -s TITLE_ID=$(TITLE_ID) "Homebrew Downloader" output/param.sfo
 	python ~/vita-pack-vpk-gen.py vpk_extras output $@
 	
 eboot.bin: $(TARGET).velf
