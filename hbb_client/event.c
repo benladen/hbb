@@ -28,6 +28,10 @@ struct _itemList {
 	size_t webUrlLength;
 	char *description;
 	size_t descriptionLength;
+	char *descWrap;
+	size_t descWrapLength;
+	unsigned int descWrapLines;
+	unsigned int descWrapScroll;
 	unsigned int dlcount;
 	unsigned int cachedrating;
 	unsigned char isSafeHomebrew;
@@ -142,12 +146,13 @@ static unsigned char configFrontTouchscreen = 1;
 static unsigned char configBackTouchscreen = 1;
 
 static void clearNdItl(void);
-static void downloadPackage(unsigned int);
+static void downloadPackage(unsigned int id);
 static void preparePtmp(void);
 static int writeHeadBinFile(void);
-static SceWChar16* convertChar8to16(char*);
-static char* convertChar16to8(SceWChar16*, size_t);
+static SceWChar16* convertChar8to16(char *text);
+static char* convertChar16to8(SceWChar16 *text, size_t length);
 static int loadConfig(void);
+static char* wrapText(char *input, size_t len, size_t wrap);
 
 static void clearNdItl(void) {
 	struct _itemList *cil = ndItl;
@@ -171,6 +176,9 @@ static void clearNdItl(void) {
 		}
 		if (cil->description != NULL) {
 			free(cil->description);
+		}
+		if (cil->descWrap != NULL) {
+			free(cil->descWrap);
 		}
 		if (cil->extra != NULL) {
 			free(cil->extra);
@@ -474,6 +482,29 @@ static int loadConfig(void) {
 	return 0;
 }
 
+char* wrapText(char *input, size_t len, size_t wrap) {
+    size_t i, k;
+	size_t wraploc = 0;
+	size_t lastwrap = 0;
+	char *output = (char*)calloc(1, len);
+	memcpy(output, input, len);
+
+    for (i = 0; output[i] != '\0'; ++i, ++wraploc) {
+        if (wraploc >= wrap) {
+            for (k = i; k > 0; --k) {
+                if (k - lastwrap <= wrap && output[k] == ' ') {
+                    output[k] = '\n';
+                    lastwrap = k+1;
+                    break;
+                }
+            }
+			wraploc = i-lastwrap;
+        }
+
+    }
+    return output;
+}
+
 int eventInit(void) {
 	#ifdef PSP2_DEBUG_ALL
 		showDbgScreen = 1;
@@ -677,6 +708,13 @@ int eventUpdate(void) {
 				}
 			}
 			else {
+				if (nil->descWrap != NULL) {
+					free(nil->descWrap);
+					nil->descWrap = NULL;
+					nil->descWrapLength = 0;
+					nil->descWrapLines = 0;
+					nil->descWrapScroll = 0;
+				}
 				if (nil->iconStatus == 2 || nil->iconStatus == 4) {
 					graphicsFreeTexture(nil->icon);
 					nil->icon = NULL;
@@ -888,6 +926,15 @@ int eventDraw(void) {
 		struct _itemList *nil = ndItl;
 		unsigned int i = 0;
 		float r = 0.0f;
+		
+		size_t j = 0;
+		size_t lc = 0;
+		char l = 0;
+		size_t lineSkip = 0;
+		size_t descLineLen = 68;
+		char descLine[68];
+		memset(&descLine, 0, descLineLen);
+		
 		while (nil != NULL) {
 			if (i == scrnIlSel) {
 				loadingIconTex->x = 64;
@@ -914,6 +961,7 @@ int eventDraw(void) {
 				}
 				graphicsDrawRectangle(0, 128, PSP2_DISPLAY_WIDTH, 2, 0xFF808080);
 				if (scrnTextNeedRefresh == 1) {
+					debugTextClear(textLayer);
 					debugTextPrint(textLayer, nil->displayName, 130, 2, DBGTXT_C7, DBGTXT_C_CLEAR, DBGTXT_LARGE);
 					debugTextPrint(textLayer, nil->version, ((nil->displayNameLength+2)*18)+130, 2, DBGTXT_C7, DBGTXT_C_CLEAR, DBGTXT_LARGE);
 					debugTextPrint(textLayer, nil->author, 130, 34, DBGTXT_C7, DBGTXT_C_CLEAR, DBGTXT_LARGE);
@@ -927,10 +975,45 @@ int eventDraw(void) {
 						debugTextPrint(textLayer, "Not Available", 242, 106, DBGTXT_C7, DBGTXT_C_CLEAR, DBGTXT_SMALL);
 					}
 					if (nil->description == NULL || nil->descriptionLength == 0) {
-						debugTextPrint(textLayer, "No description.", 2, 132, DBGTXT_C7, DBGTXT_C_CLEAR, DBGTXT_SMALL);
+						debugTextPrint(textLayer, "No description.", 2, 134, DBGTXT_C7, DBGTXT_C_CLEAR, DBGTXT_SMALL);
 					}
 					else {
-						debugTextPrint(textLayer, nil->description, 2, 132, DBGTXT_C7, DBGTXT_C_CLEAR, DBGTXT_SMALL);
+						if (nil->descWrap == NULL) {
+							nil->descWrap = wrapText(nil->description, nil->descriptionLength, descLineLen-1);
+							nil->descWrapLength = strlen(nil->descWrap);
+							nil->descWrapLines = 1;
+							for (j = 0; j < nil->descWrapLength+1; j++) {
+								if (nil->descWrap[j] == '\n') {
+									++nil->descWrapLines;
+								}
+							}
+							j = 0;
+						}
+						lineSkip = nil->descWrapScroll;
+						while (j < nil->descWrapLength+1) {
+							if (nil->descWrap[j] == '\n' || lc >= descLineLen-1 || j == nil->descWrapLength) {
+								if (lineSkip > 0) {
+									--lineSkip;
+								}
+								else {
+									debugTextPrint(textLayer, descLine, 2, (l*16)+134, DBGTXT_C7, DBGTXT_C_CLEAR, DBGTXT_SMALL);
+									++l;
+									if (l > 22) {
+										break;
+									}
+								}
+								memset(&descLine, 0, descLineLen);
+								lc = 0;
+								if (nil->descWrap[j] == '\n') {
+									++j;
+								}
+							}
+							else {
+								descLine[lc] = nil->descWrap[j];
+								++lc;
+								++j;
+							}
+						}
 					}
 					
 					debugTextPrint(textLayer, "Press X to install, O to go back, Left/Right for next/previous", 5, 522, DBGTXT_C7, DBGTXT_C_CLEAR, DBGTXT_SMALL);
@@ -1129,6 +1212,21 @@ int eventButtonDown(int button) {
 					scrnTextNeedRefresh = 1;
 				}
 			}
+			else if (scrn == 3 && waitingOnData == 0) {
+				struct _itemList *nil = ndItl;
+				unsigned int i = 0;
+				while (nil != NULL) {
+					if (i == scrnIlSel) {
+						if (nil->descWrapScroll > 0) {
+							--nil->descWrapScroll;
+							scrnTextNeedRefresh = 1;
+						}
+						break;
+					}
+					nil = nil->next;
+					++i;
+				}
+			}
 		}
 		if (button == SCE_CTRL_DOWN) {
 			if (scrn == 1 && waitingOnData == 0) {
@@ -1141,6 +1239,23 @@ int eventButtonDown(int button) {
 				if (scrnIlSel < scrnIlMaxSel-1) {
 					++scrnIlSel;
 					scrnTextNeedRefresh = 1;
+				}
+			}
+			else if (scrn == 3 && waitingOnData == 0) {
+				struct _itemList *nil = ndItl;
+				unsigned int i = 0;
+				while (nil != NULL) {
+					if (i == scrnIlSel) {
+						if (nil->descWrapLines > 22) {
+							if (nil->descWrapScroll < nil->descWrapLines-22) {
+							++nil->descWrapScroll;
+							scrnTextNeedRefresh = 1;
+							}
+						}
+						break;
+					}
+					nil = nil->next;
+					++i;
 				}
 			}
 		}
@@ -1614,6 +1729,10 @@ int eventNetworkMsg(char ev1, char ev2, char *data, size_t len) {
 					nil->webUrlLength = 0;
 					nil->description = NULL;
 					nil->descriptionLength = 0;
+					nil->descWrap = NULL;
+					nil->descWrapLength = 0;
+					nil->descWrapLines = 0;
+					nil->descWrapScroll = 0;
 					nil->dlcount = 0;
 					nil->cachedrating = cachedRating;
 					nil->isSafeHomebrew = 0;
