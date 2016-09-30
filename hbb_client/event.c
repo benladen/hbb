@@ -1550,6 +1550,19 @@ int eventNetworkMsg(char ev1, char ev2, char *data, size_t len) {
 		else if (ev2 == 6) { /* Server Shutdown/Reboot Soon */
 		}
 		else if (ev2 == 7) { /* IP address Is Banned */
+			endConnection();
+			debugTextClear(textLayer);
+			if (dialogDisplay != 0 && dialogFreeContents == 1 && dialogContents != NULL) {
+				free(dialogContents);
+			}
+			dialogID = 6;
+			dialogDisplay = 1;
+			dialogType = 0;
+			dialogFreeContents = 0;
+			dialogContents = "You have been banned from this\n"
+							 "server.\n\n"
+							 /*"Time: 123 Hours\n"
+							 "Reason:"*/;
 		}
 		else if (ev2 == 8) { /* Update Required */
 			endConnection();
@@ -2044,6 +2057,7 @@ int eventNetworkMsg(char ev1, char ev2, char *data, size_t len) {
 				debugMessage("chunkNum DOES NOT MATCH! [File Data]");
 			}
 			sceIoWrite(installCurFile->file, data+pos, dataLen);
+			netSendData(4, 4, NULL, 0);
 		}
 		else if (ev2 == 5) { /* File End */
 			unsigned int itemID;
