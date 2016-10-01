@@ -643,7 +643,7 @@ int eventUpdate(void) {
 			}
 			memcpy(data, &netShortChar[0], 2);
 			memcpy(data+2, imeInputText8, strlen(imeInputText8));
-			netSendData(2, 5, data, strlen(imeInputText8)+3);
+			netSendData(2, 5, data, strlen(imeInputText8)+2);
 			free(data);
 		}
 		free(imeInputText8);
@@ -1955,6 +1955,8 @@ int eventNetworkMsg(char ev1, char ev2, char *data, size_t len) {
 				pos += 1;
 
 				if (fileIsDir == 0) {
+					int i = 15;
+					char prvc;
 					fil = (struct _fileInfoList*)calloc(1, sizeof(struct _fileInfoList));
 					if (fil == NULL) {
 						debugMessage("ERROR: fil is NULL.");
@@ -1975,7 +1977,19 @@ int eventNetworkMsg(char ev1, char ev2, char *data, size_t len) {
 						}
 						fprv = fil;
 					}
-
+					while (i <= fileNameLength+14) {
+						if (fileName[i] == '/' || fileName[i] == '\\') {
+							prvc = fileName[i+1];
+							fileName[i+1] = 0;
+							mkfile = sceIoMkdir(fileName, 0777);
+							if (mkfile < 0 && (unsigned int)mkfile != 0x80010011) {
+								debugMessage("Error on sceIoMkdir, returned:");
+								debugPrintInt(mkfile);
+							}
+							fileName[i+1] = prvc;
+						}
+						++i;
+					}
 				}
 				else {
 					int i = 15;
