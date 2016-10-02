@@ -36,6 +36,7 @@ DD = Error number starting from 1
 #define ERROR_EV45_E3 0x01004503
 
 #define ERROR_EU04_E1 0x01010401
+#define ERROR_EU04_E2 0x01010402
 
 #define ERROR_WHBF_E1 0x01020001
 #define ERROR_WHBF_E2 0x01020002
@@ -89,7 +90,7 @@ struct _itemList {
 
 struct _packageInfo {
 	unsigned int itemID;
-	char pkgType;
+	char pkgType; /* 0 = Invalid, 1 = App/Game, 2 = Theme, 3 = Plugin */
 	unsigned int fileCount;
 	struct _fileInfoList *files;
 };
@@ -165,7 +166,7 @@ static unsigned int instalItemID = 0;
 static char installStatus = 0; /* 0 = Downloading, 1 = Installing, 2 = Finished */
 static unsigned int installChunkCount = 0;
 static unsigned int installExpectedChunkCount = 0;
-static char installPercent = 0;
+static unsigned int installPercent = 0;
 static unsigned int installPercentMax = 4294967295U;
 static int installResult = -1;
 static struct _packageInfo *installPkgInfo = NULL;
@@ -846,65 +847,89 @@ int eventUpdate(void) {
 		waitingOnData = 1;
 	}
 	/* scrn 4 install */
+	else if (scrn == 4 && installPkgInfo != NULL && installStatus == 10 && waitingOnData == 0) {
+		installStatus = 1;
+	}
 	else if (scrn == 4 && installPkgInfo != NULL && installStatus == 1 && waitingOnData == 0) {
-		int state = 1;
-		int result = 0;
-		SceUID ebootBin;
-		unsigned char isSafeFile = 255;
-		uint32_t ptr[256] = {0};
-		uint32_t scepaf_argp[] = {0x400000, 60000, 0x40000, 0, 0};
-		ptr[0] = 0;
-		ptr[1] = (uint32_t)&ptr[0];
-		sceSysmoduleLoadModuleInternalWithArg(0x80000008, sizeof(scepaf_argp), scepaf_argp, ptr);
-		
-		ebootBin = sceIoOpen("ux0:/ptmp/pkg/eboot.bin", SCE_O_RDONLY, 0777);
-		if (ebootBin >= 0) {
-			sceIoLseek32(ebootBin, 0x80, SCE_SEEK_SET);
-			sceIoRead(ebootBin, &isSafeFile, 1);
-			sceIoClose(ebootBin);
-		}
-		else {
-			debugMessage("Error on sceIoOpen, returned:");
-			debugPrintInt(ebootBin);
-			lastError = ERROR_EU04_E1;
-			return 0;
-		}
-		
-		if (isSafeHomebrewChk == 0) {
-			isSafeHomebrewChk = isSafeFile;
-		}
-		
-		if (isSafeHomebrewChk == isSafeFile) {
-			writeHeadBinFile();
-			if (lastError != 0) {
+		if (installPkgInfo->pkgType == 1) { /* App/Game */
+			int state = 1;
+			int result = 0;
+			SceUID ebootBin;
+			unsigned char isSafeFile = 255;
+			uint32_t ptr[256] = {0};
+			uint32_t scepaf_argp[] = {0x400000, 60000, 0x40000, 0, 0};
+			ptr[0] = 0;
+			ptr[1] = (uint32_t)&ptr[0];
+			sceSysmoduleLoadModuleInternalWithArg(0x80000008, sizeof(scepaf_argp), scepaf_argp, ptr);
+			
+			ebootBin = sceIoOpen("ux0:/ptmp/pkg/eboot.bin", SCE_O_RDONLY, 0777);
+			if (ebootBin >= 0) {
+				sceIoLseek32(ebootBin, 0x80, SCE_SEEK_SET);
+				sceIoRead(ebootBin, &isSafeFile, 1);
+				sceIoClose(ebootBin);
+			}
+			else {
+				debugMessage("Error on sceIoOpen, returned:");
+				debugPrintInt(ebootBin);
+				lastError = ERROR_EU04_E1;
 				return 0;
 			}
 			
-			sceSysmoduleLoadModuleInternal(SCE_SYSMODULE_PROMOTER_UTIL);
-			scePromoterUtilityInit();
+			if (isSafeHomebrewChk == 0) {
+				isSafeHomebrewChk = isSafeFile;
+			}
+			
+			if (isSafeHomebrewChk == isSafeFile) {
+				writeHeadBinFile();
+				if (lastError != 0) {
+					return 0;
+				}
+				
+				sceSysmoduleLoadModuleInternal(SCE_SYSMODULE_PROMOTER_UTIL);
+				scePromoterUtilityInit();
 
-			scePromoterUtilityPromotePkg("ux0:/ptmp/pkg/", 0);
-			while (state) {
-				scePromoterUtilityGetState(&state);
-				sleep(1);
-			} 
-			scePromoterUtilityGetResult(&result);
+				scePromoterUtilityPromotePkg("ux0:/ptmp/pkg/", 0);
+				while (state) {
+					scePromoterUtilityGetState(&state);
+					sleep(1);
+				} 
+				scePromoterUtilityGetResult(&result);
 
-			scePromoterUtilityExit();
-			sceSysmoduleUnloadModuleInternal(SCE_SYSMODULE_PROMOTER_UTIL);
+				scePromoterUtilityExit();
+				sceSysmoduleUnloadModuleInternal(SCE_SYSMODULE_PROMOTER_UTIL);
+			}
+			else {
+				if (dialogDisplay != 0 && dialogFreeContents == 1 && dialogContents != NULL) {
+					free(dialogContents);
+				}
+				dialogID = 1;
+				dialogDisplay = 1;
+				dialogType = 2;
+				dialogFreeContents = 0;
+				dialogContents = "Required permissions in file\n"
+								 "did not match permissions\n"
+								 "reported by server!\n\n"
+								 "Install cancelled.";
+			}
+		}
+		else if (installPkgInfo->pkgType == 2) { /* Theme */
+			struct _fileInfoList *fil = installPkgInfo->files;
+			debugMessage("Theme");
+			while (fil != NULL) {
+				debugMessage(fil->name);
+				fil = fil->next;
+			}
+			/* Read ux0:/ptmp/pkg/theme.dat */
+			/* Move theme files to ux0:/customtheme/ */
+			/* Update ux0:/customtheme/db.dat (List of themes for reinstallation if needed) */
+			/* Update app.db */
+			/* You have to reboot for changes to apply dialog */
+		}
+		else if (installPkgInfo->pkgType == 3) { /* Plugin */
 		}
 		else {
-			if (dialogDisplay != 0 && dialogFreeContents == 1 && dialogContents != NULL) {
-				free(dialogContents);
-			}
-			dialogID = 1;
-			dialogDisplay = 1;
-			dialogType = 2;
-			dialogFreeContents = 0;
-			dialogContents = "Required permissions in file\n"
-							 "did not match permissions\n"
-							 "reported by server!\n\n"
-							 "Install cancelled.";
+			lastError = ERROR_EU04_E2;
+			return 0;
 		}
 		installPercent = 1;
 		installStatus = 2;
@@ -2273,9 +2298,9 @@ int eventNetworkMsg(char ev1, char ev2, char *data, size_t len) {
 			sceIoClose(installCurFile->file);
 			installCurFile = installCurFile->next;
 			if (installCurFile == NULL) {
-				installPercent = 0;
+				installPercent = 1;
 				installPercentMax = 1;
-				installStatus = 1;
+				installStatus = 10;
 				scrnTextNeedRefresh = 1;
 			}
 			waitingOnData = 0;
