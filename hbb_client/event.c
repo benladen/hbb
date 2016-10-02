@@ -1,5 +1,49 @@
 #include "event.h"
 
+/* Error codes:
+0xAABBCCDD 
+AA = 1
+BB = Location
+	0 = eventNetworkMsg
+	1 = eventUpdate
+	2 = writeHeadBinFile
+CC = Sublocation
+	if BB == 0: CC is ev1 and ev2 (4, 3 = 43)
+	if BB == 1: CC is scrn
+	if BB == 2: CC is 0
+DD = Error number starting from 1
+*/
+#define ERROR_EV42_E1 0x01004201
+#define ERROR_EV42_E2 0x01004202
+#define ERROR_EV42_E3 0x01004203
+#define ERROR_EV42_E4 0x01004204
+#define ERROR_EV42_E5 0x01004205
+#define ERROR_EV42_E6 0x01004206
+#define ERROR_EV42_E7 0x01004207
+#define ERROR_EV42_E8 0x01004208
+#define ERROR_EV42_E9 0x01004209
+
+#define ERROR_EV43_E1 0x01004301
+#define ERROR_EV43_E2 0x01004302
+#define ERROR_EV43_E3 0x01004303
+
+#define ERROR_EV44_E1 0x01004401
+#define ERROR_EV44_E2 0x01004402
+#define ERROR_EV44_E3 0x01004403
+
+#define ERROR_EV45_E1 0x01004501
+#define ERROR_EV45_E2 0x01004502
+#define ERROR_EV45_E3 0x01004503
+
+#define ERROR_EU04_E1 0x01010401
+
+#define ERROR_WHBF_E1 0x01020001
+#define ERROR_WHBF_E2 0x01020002
+#define ERROR_WHBF_E3 0x01020003
+#define ERROR_WHBF_E4 0x01020004
+#define ERROR_WHBF_E5 0x01020005
+#define ERROR_WHBF_E6 0x01020006
+
 struct _categoryList;
 struct _itemList;
 struct _fileInfoList;
@@ -77,10 +121,12 @@ struct SFOEntry {
 	uint32_t dataofs;
 } __attribute__((packed)) SFOEntry;
 
+static int lastError = 0;
+
 static char breakLoop = 0;
 
-int showDbgScreen = 0;
-int showLoadingTex = 1;
+static int showDbgScreen = 0;
+static int showLoadingTex = 1;
 static struct dbgText *textLayer;
 static struct dbgText *dialogText;
 static struct graphicsTexture *loadingTex;
@@ -146,6 +192,7 @@ static unsigned char configFrontTouchscreen = 1;
 static unsigned char configBackTouchscreen = 1;
 
 static void clearNdItl(void);
+static void clearInstallPkgInfo(void);
 static void downloadPackage(unsigned int id);
 static void preparePtmp(void);
 static int writeHeadBinFile(void);
@@ -193,6 +240,32 @@ static void clearNdItl(void) {
 	ndItl = NULL;
 	scrnIlSel = 0;
 	scrnIlMaxSel = 0;
+}
+
+static void clearInstallPkgInfo(void) {
+	struct _fileInfoList *fil;
+	struct _fileInfoList *fprv = NULL;
+	if (installPkgInfo != NULL) {
+		fil = installPkgInfo->files;
+		while (fil != NULL) {
+			if (fprv != NULL) {
+				if (fprv->name != NULL) {
+					free(fprv->name);
+				}
+				free(fprv);
+			}
+			fprv = fil;
+			fil = fil->next;
+		}
+		if (fprv != NULL) {
+			free(fprv->name);
+			free(fprv);
+		}
+		free(installPkgInfo);
+		installPkgInfo = NULL;
+		installCurFile = NULL;
+		fil = NULL;
+	}
 }
 
 static void downloadPackage(unsigned int id) {
@@ -255,12 +328,17 @@ static int writeHeadBinFile(void) {
 	file = sceIoOpen("ux0:/ptmp/pkg/sce_sys/param.sfo", SCE_O_RDONLY, 0777);
 	if (!file) {
 		debugMessage("writeHeadBinFile Error 1");
+		lastError = ERROR_WHBF_E1;
+		return 1;
 	}
 	fileSize = sceIoLseek32(file, 0, SCE_SEEK_END);
 	sceIoLseek32(file, 0, SCE_SEEK_SET);
 	fileData = (char*)calloc(1, fileSize + 1);
 	if (!fileData) {
 		debugMessage("writeHeadBinFile Error 2");
+		lastError = ERROR_WHBF_E2;
+		sceIoClose(file);
+		return 2;
 	}
 	sceIoRead(file, fileData, fileSize);
 
@@ -287,11 +365,15 @@ static int writeHeadBinFile(void) {
 	}
 	if (titleID == NULL) {
 		debugMessage("writeHeadBinFile Error 3");
+		lastError = ERROR_WHBF_E3;
+		return 3;
 	}
 
 	templateHead = sceIoOpen("app0:/data/h.bin", SCE_O_RDONLY, 0777);
 	if (templateHead < 0) {
 		debugMessage("writeHeadBinFile Error 4");
+		lastError = ERROR_WHBF_E4;
+		return 4;
 	}
 	headSize = sceIoLseek32(templateHead, 0, SCE_SEEK_END);
 	sceIoLseek32(templateHead, 0, SCE_SEEK_SET);
@@ -301,6 +383,10 @@ static int writeHeadBinFile(void) {
 
 	if (strlen(titleID) > 9) {
 		debugMessage("writeHeadBinFile Error 5");
+		lastError = ERROR_WHBF_E5;
+		free(headData);
+		free(titleID);
+		return 5;
 	}
 	sprintf(fullTitleID, "EP9000-%s_00-XXXXXXXXXXXXXXXX", titleID);
 	memcpy(&headData[0x30], &fullTitleID[0], 48);
@@ -370,6 +456,10 @@ static int writeHeadBinFile(void) {
 	else {
 		debugMessage("Error on sceIoOpen, returned:");
 		debugPrintInt(file);
+		lastError = ERROR_WHBF_E6;
+		free(headData);
+		free(titleID);
+		return 6;
 	}
 	free(headData);
 	free(titleID);
@@ -726,6 +816,25 @@ int eventUpdate(void) {
 		}
 	}
 	/* scrn 4 download */
+	else if (scrn == 4 && lastError != 0) {
+		debugTextClear(textLayer);
+		if (dialogDisplay != 0 && dialogFreeContents == 1 && dialogContents != NULL) {
+			free(dialogContents);
+		}
+		dialogID = 8;
+		dialogDisplay = 1;
+		dialogType = 2;
+		dialogFreeContents = 0;
+		dialogContents = "An error has occurred.\n"
+						"Retry with debugging enabled\n"
+						"to see error code.";
+		debugMessage("Error:");
+		debugPrintInt(lastError);
+		lastError = 0;
+		scrnTextNeedRefresh = 1;
+		waitingOnData = 0;
+		scrn = 3;
+	}
 	else if (scrn == 4 && installCurFile != NULL && installStatus == 0 && waitingOnData == 0) {
 		int netInt = 0;
 		char netIntChar[8];
@@ -757,6 +866,8 @@ int eventUpdate(void) {
 		else {
 			debugMessage("Error on sceIoOpen, returned:");
 			debugPrintInt(ebootBin);
+			lastError = ERROR_EU04_E1;
+			return 0;
 		}
 		
 		if (isSafeHomebrewChk == 0) {
@@ -765,6 +876,9 @@ int eventUpdate(void) {
 		
 		if (isSafeHomebrewChk == isSafeFile) {
 			writeHeadBinFile();
+			if (lastError != 0) {
+				return 0;
+			}
 			
 			sceSysmoduleLoadModuleInternal(SCE_SYSMODULE_PROMOTER_UTIL);
 			scePromoterUtilityInit();
@@ -1036,8 +1150,8 @@ int eventDraw(void) {
 	}
 	else if (scrn == 4) {
 		float r = 0.0f;
-		int b = 0xFF000000;
-		int y = 542;
+		/*int b = 0xFF000000;
+		int y = 542;*/
 		if (installStatus == 0 && scrnTextNeedRefresh == 1) {
 			debugTextClear(textLayer);
 			debugTextPrint(textLayer, "Downloading", 381, 264, DBGTXT_C7, DBGTXT_C_CLEAR, DBGTXT_LARGE);
@@ -1050,12 +1164,12 @@ int eventDraw(void) {
 			debugTextClear(textLayer);
 			debugTextPrint(textLayer, "Finished", 408, 264, DBGTXT_C7, DBGTXT_C_CLEAR, DBGTXT_LARGE);
 		}
-		graphicsDrawRectangle(0, 0, 960, 544, 0xFFFF0000);
+		/*graphicsDrawRectangle(0, 0, 960, 544, 0xFFFF0000);
 		while (y > 34) {
 			graphicsDrawRectangle(0, y, 960, 2, b);
 			b += 0x00010000;
 			y -= 2;
-		}
+		}*/
 		r = (float)installPercent;
 		r = (r/(float)installPercentMax)*198.0f;
 		graphicsDrawRectangle(380, 298, 200, 16, 0xFF808080);
@@ -1886,7 +2000,8 @@ int eventNetworkMsg(char ev1, char ev2, char *data, size_t len) {
 	}
 	else if (ev1 == 4) { /* File */
 		if (ev2 == 2) { /* Package Information */
-			struct _packageInfo *pi;
+			unsigned short fnChk = 0;
+			struct _packageInfo *pi = NULL;
 			struct _fileInfoList *fil;
 			struct _fileInfoList *fprv = NULL;
 			unsigned int itemID;
@@ -1902,6 +2017,7 @@ int eventNetworkMsg(char ev1, char ev2, char *data, size_t len) {
 			
 			SceUID mkfile;
 			
+			clearInstallPkgInfo();
 			preparePtmp();
 			
 			memcpy(&itemID, data+pos, sizeof(itemID));
@@ -1915,11 +2031,15 @@ int eventNetworkMsg(char ev1, char ev2, char *data, size_t len) {
 			
 			if (itemID != instalItemID) {
 				debugMessage("ID DOES NOT MATCH!");
+				lastError = ERROR_EV42_E1;
+				return 0;
 			}
 			
 			pi = (struct _packageInfo*)calloc(1, sizeof(struct _packageInfo));
 			if (pi == NULL) {
 				debugMessage("ERROR: pi is NULL.");
+				lastError = ERROR_EV42_E2;
+				return 0;
 			}
 			else {
 				pi->itemID = itemID;
@@ -1942,6 +2062,10 @@ int eventNetworkMsg(char ev1, char ev2, char *data, size_t len) {
 				fileName = (char*)calloc(1, fileNameLength+14+1);
 				if (fileName == NULL) {
 					debugMessage("ERROR: calloc returned NULL.");
+					installPkgInfo = pi;
+					clearInstallPkgInfo();
+					lastError = ERROR_EV42_E3;
+					return 0;
 				}
 				memcpy(fileName, "ux0:/ptmp/pkg/", 14);
 				memcpy(fileName+14, data+pos+2, fileNameLength);
@@ -1953,13 +2077,32 @@ int eventNetworkMsg(char ev1, char ev2, char *data, size_t len) {
 				
 				memcpy(&fileIsDir, data+pos, sizeof(fileIsDir));
 				pos += 1;
-
+				
+				for (fnChk = 0; fnChk < fileNameLength-3; fnChk++) {
+					if (fileName[fnChk] == '/' && fileName[fnChk+1] == '.') {
+						if (fileName[fnChk+2] == '.' && fileName[fnChk+3] == '/') {
+							debugMessage("Bad fileName");
+							debugMessage(fileName);
+							free(fileName);
+							installPkgInfo = pi;
+							clearInstallPkgInfo();
+							lastError = ERROR_EV42_E4;
+							return 0;
+						}
+					}
+				}
+				
 				if (fileIsDir == 0) {
 					int i = 15;
 					char prvc;
 					fil = (struct _fileInfoList*)calloc(1, sizeof(struct _fileInfoList));
 					if (fil == NULL) {
 						debugMessage("ERROR: fil is NULL.");
+						free(fileName);
+						installPkgInfo = pi;
+						clearInstallPkgInfo();
+						lastError = ERROR_EV42_E5;
+						return 0;
 					}
 					else {
 						++installPercentMax;
@@ -1985,6 +2128,12 @@ int eventNetworkMsg(char ev1, char ev2, char *data, size_t len) {
 							if (mkfile < 0 && (unsigned int)mkfile != 0x80010011) {
 								debugMessage("Error on sceIoMkdir, returned:");
 								debugPrintInt(mkfile);
+								free(fil);
+								free(fileName);
+								installPkgInfo = pi;
+								clearInstallPkgInfo();
+								lastError = ERROR_EV42_E6;
+								return 0;
 							}
 							fileName[i+1] = prvc;
 						}
@@ -2002,6 +2151,11 @@ int eventNetworkMsg(char ev1, char ev2, char *data, size_t len) {
 							if (mkfile < 0 && (unsigned int)mkfile != 0x80010011) {
 								debugMessage("Error on sceIoMkdir, returned:");
 								debugPrintInt(mkfile);
+								free(fileName);
+								installPkgInfo = pi;
+								clearInstallPkgInfo();
+								lastError = ERROR_EV42_E7;
+								return 0;
 							}
 							fileName[i+1] = prvc;
 						}
@@ -2031,14 +2185,20 @@ int eventNetworkMsg(char ev1, char ev2, char *data, size_t len) {
 			pos += 4;
 			if (instalItemID != itemID) {
 				debugMessage("itemID DOES NOT MATCH! [File Start]");
+				lastError = ERROR_EV43_E1;
+				return 0;
 			}
 			if (installCurFile->fileID != fileID) {
 				debugMessage("fileID DOES NOT MATCH! [File Start]");
+				lastError = ERROR_EV43_E2;
+				return 0;
 			}
 			installCurFile->file = sceIoOpen(installCurFile->name, SCE_O_WRONLY|SCE_O_CREAT, 0777);
 			if (installCurFile->file < 0) {
 				debugMessage("Error on sceIoOpen, returned:");
 				debugPrintInt(installCurFile->file);
+				lastError = ERROR_EV43_E3;
+				return 0;
 			}
 			installExpectedChunkCount = chunkCount;
 			installChunkCount = 0;
@@ -2063,12 +2223,21 @@ int eventNetworkMsg(char ev1, char ev2, char *data, size_t len) {
 			pos += 4;
 			if (instalItemID != itemID) {
 				debugMessage("itemID DOES NOT MATCH! [File Data]");
+				lastError = ERROR_EV44_E1;
+				sceIoClose(installCurFile->file);
+				return 0;
 			}
 			if (installCurFile->fileID != fileID) {
 				debugMessage("fileID DOES NOT MATCH! [File Data]");
+				lastError = ERROR_EV44_E2;
+				sceIoClose(installCurFile->file);
+				return 0;
 			}
 			if (installChunkCount != chunkNum) {
 				debugMessage("chunkNum DOES NOT MATCH! [File Data]");
+				lastError = ERROR_EV44_E3;
+				sceIoClose(installCurFile->file);
+				return 0;
 			}
 			sceIoWrite(installCurFile->file, data+pos, dataLen);
 			netSendData(4, 4, NULL, 0);
@@ -2085,12 +2254,21 @@ int eventNetworkMsg(char ev1, char ev2, char *data, size_t len) {
 			pos += 4;
 			if (instalItemID != itemID) {
 				debugMessage("itemID DOES NOT MATCH! [File End]");
+				lastError = ERROR_EV45_E1;
+				sceIoClose(installCurFile->file);
+				return 0;
 			}
 			if (installCurFile->fileID != fileID) {
 				debugMessage("fileID DOES NOT MATCH! [File End]");
+				lastError = ERROR_EV45_E2;
+				sceIoClose(installCurFile->file);
+				return 0;
 			}
 			if (installChunkCount != installExpectedChunkCount) {
 				debugMessage("installChunkCount DOES NOT MATCH! [File End]");
+				lastError = ERROR_EV45_E3;
+				sceIoClose(installCurFile->file);
+				return 0;
 			}
 			sceIoClose(installCurFile->file);
 			installCurFile = installCurFile->next;
