@@ -13,6 +13,7 @@ void Http::start(Server *srv) {
     std::string acceptIPs = getSetting("Config.HTTP_AcceptIPs", "127.0.0.1");
     std::string ipTemp = "";
     bool addrFound = false;
+	acceptIPs += ",";
     for (std::string::size_type i = 0; i < acceptIPs.length(); i++) {
         if (acceptIPs.at(i) == ',') {
             if (ipAddress == ipTemp) {
