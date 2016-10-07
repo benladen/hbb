@@ -1,4 +1,4 @@
-# Homebrew Downloader
+# Vita Homebrew Downloader
 Download and install VPK files on your Vita without using a computer or a web browser.  
   
 Client:  
