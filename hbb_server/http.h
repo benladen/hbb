@@ -16,6 +16,7 @@ private:
     void handleSend(const boost::system::error_code &error);
     void processData(std::vector<std::string> lines);
     void sendPage(std::string text);
+	std::string htmlspecialchars(std::string input);
 public:
 	boost::asio::ip::tcp::socket socket;
     std::string ipAddress;

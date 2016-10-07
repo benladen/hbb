@@ -258,7 +258,7 @@ void Http::processData(std::vector<std::string> lines) {
                                 if (inName) {
                                     if (nameCount > 0) {
                                         resultPage += "<td>";
-                                        resultPage += name;
+                                        resultPage += htmlspecialchars(name);
                                         resultPage += "</td>";
                                     }
                                     name.clear();
@@ -288,7 +288,7 @@ void Http::processData(std::vector<std::string> lines) {
                         resultPage += "<tr>";
                         for (unsigned int j = 0; j < results[i].size(); j++) {
                             resultPage += "<td>";
-                            resultPage += results[i][j];
+                            resultPage += htmlspecialchars(results[i][j]);
                             resultPage += "</td>";
                         }
                         resultPage += "</tr>";
@@ -308,7 +308,7 @@ void Http::processData(std::vector<std::string> lines) {
                 std::string select;
                 for (unsigned int i = 0; i < server->categories.size(); i++) {
                     std::string idstr = boost::lexical_cast<std::string>((int)(server->categories[i].id));
-                    select += "<option value=\""+idstr+"\">"+idstr+" - "+server->categories[i].name+"</option>";
+                    select += "<option value=\""+idstr+"\">"+idstr+" - "+htmlspecialchars(server->categories[i].name)+"</option>";
                 }
                 sendPage("<html>"
                     "<head><title>dbEdit</title></head>"
@@ -451,7 +451,8 @@ void Http::processData(std::vector<std::string> lines) {
                     std::vector<std::vector<std::string>> results;
                     results = server->db->SQLiteExecute("select id,displayname,version from app");
                     for (unsigned int i = 0; i < results.size(); i++) {
-                        select += "<option value=\""+results[i][0]+"\">"+results[i][0]+" - "+results[i][1]+" ("+results[i][2]+")</option>";
+                        select += "<option value=\""+htmlspecialchars(results[i][0])+"\">"+htmlspecialchars(results[i][0])+" - "
+								  ""+htmlspecialchars(results[i][1])+" ("+htmlspecialchars(results[i][2])+")</option>";
                     }
                     sendPage("<html>"
                         "<head><title>dbEdit</title></head>"
@@ -488,7 +489,7 @@ void Http::processData(std::vector<std::string> lines) {
                         boost::replace_all(results[0][9], "\n", "\r\n");
                         for (unsigned int i = 0; i < server->categories.size(); i++) {
                             std::string idstr = boost::lexical_cast<std::string>((int)(server->categories[i].id));
-                            select += "<option value=\""+idstr+"\">"+idstr+" - "+server->categories[i].name+"</option>";
+                            select += "<option value=\""+idstr+"\">"+idstr+" - "+htmlspecialchars(server->categories[i].name)+"</option>";
                         }
                         if (results.size() > 0) {
                             sendPage("<html>"
@@ -497,20 +498,20 @@ void Http::processData(std::vector<std::string> lines) {
                                 "<h2><i>Edit entry in app</i></h2>"
                                 "<hr><br><table>"
                                 "<form action=\"/dbEdit/"+table+"/edit/confirm/"+server->httpSessionRandom+"\" method=\"get\">"
-                                "<tr><td>id:</td><td><input type=\"text\" name=\"id\" value=\""+results[0][0]+"\" readonly></td></tr>"
-                                "<tr><td>title_id:</td><td><input type=\"text\" name=\"title_id\" value=\""+results[0][1]+"\" maxlength=\"9\"></td></tr>"
-                                "<tr><td>date:</td><td><input type=\"number\" name=\"date\" value=\""+results[0][2]+"\" min=\"0\" max=\"4294967295\"></td></tr>"
+                                "<tr><td>id:</td><td><input type=\"text\" name=\"id\" value=\""+htmlspecialchars(results[0][0])+"\" readonly></td></tr>"
+                                "<tr><td>title_id:</td><td><input type=\"text\" name=\"title_id\" value=\""+htmlspecialchars(results[0][1])+"\" maxlength=\"9\"></td></tr>"
+                                "<tr><td>date:</td><td><input type=\"number\" name=\"date\" value=\""+htmlspecialchars(results[0][2])+"\" min=\"0\" max=\"4294967295\"></td></tr>"
                                 "<tr><td>category:</td><td><select name=\"category\">"+select+"</select><br>"
-                                    "&nbsp;<font size=\"2\">Current value: "+results[0][3]+"</font></td></tr>"
-                                "<tr><td>displayname:</td><td><input type=\"text\" name=\"displayname\" value=\""+results[0][4]+"\"></td></tr>"
-                                "<tr><td>filename:</td><td><input type=\"text\" name=\"filename\" value=\""+results[0][5]+"\"></td></tr>"
-                                "<tr><td>author:</td><td><input type=\"text\" name=\"author\" value=\""+results[0][6]+"\"></td></tr>"
-                                "<tr><td>version:</td><td><input type=\"text\" name=\"version\" value=\""+results[0][7]+"\"></td></tr>"
-                                "<tr><td>weburl:</td><td><input type=\"text\" name=\"weburl\" value=\""+results[0][8]+"\"></td></tr>"
-                                "<tr><td>description:</td><td><textarea name=\"description\" rows=\"10\" cols=\"68\">"+results[0][9]+"</textarea></td></tr>"
-                                "<tr><td>dlcount:</td><td><input type=\"number\" name=\"dlcount\" value=\""+results[0][10]+"\" min=\"0\" max=\"4294967295\"></td></tr>"
+                                    "&nbsp;<font size=\"2\">Current value: "+htmlspecialchars(results[0][3])+"</font></td></tr>"
+                                "<tr><td>displayname:</td><td><input type=\"text\" name=\"displayname\" value=\""+htmlspecialchars(results[0][4])+"\"></td></tr>"
+                                "<tr><td>filename:</td><td><input type=\"text\" name=\"filename\" value=\""+htmlspecialchars(results[0][5])+"\"></td></tr>"
+                                "<tr><td>author:</td><td><input type=\"text\" name=\"author\" value=\""+htmlspecialchars(results[0][6])+"\"></td></tr>"
+                                "<tr><td>version:</td><td><input type=\"text\" name=\"version\" value=\""+htmlspecialchars(results[0][7])+"\"></td></tr>"
+                                "<tr><td>weburl:</td><td><input type=\"text\" name=\"weburl\" value=\""+htmlspecialchars(results[0][8])+"\"></td></tr>"
+                                "<tr><td>description:</td><td><textarea name=\"description\" rows=\"10\" cols=\"68\">"+htmlspecialchars(results[0][9])+"</textarea></td></tr>"
+                                "<tr><td>dlcount:</td><td><input type=\"number\" name=\"dlcount\" value=\""+htmlspecialchars(results[0][10])+"\" min=\"0\" max=\"4294967295\"></td></tr>"
                                 //"<tr><td>cachedrating:</td><td></td></tr>"
-                                "<tr><td>extra:</td><td><input type=\"text\" name=\"extra\" value=\""+results[0][12]+"\"></td></tr>"
+                                "<tr><td>extra:</td><td><input type=\"text\" name=\"extra\" value=\""+htmlspecialchars(results[0][12])+"\"></td></tr>"
                                 "<tr><td></td><td><input type=\"submit\" value=\"Submit\"></td></tr>"
                                 "</table></body>"
                                 "</html>");
@@ -630,7 +631,8 @@ void Http::processData(std::vector<std::string> lines) {
                     std::vector<std::vector<std::string>> results;
                     results = server->db->SQLiteExecute("select id,displayname,version from app");
                     for (unsigned int i = 0; i < results.size(); i++) {
-                        select += "<option value=\""+results[i][0]+"\">"+results[i][0]+" - "+results[i][1]+" ("+results[i][2]+")</option>";
+                        select += "<option value=\""+htmlspecialchars(results[i][0])+"\">"+htmlspecialchars(results[i][0])+" - "
+								  ""+htmlspecialchars(results[i][1])+" ("+htmlspecialchars(results[i][2])+")</option>";
                     }
                     sendPage("<html>"
                         "<head><title>dbEdit</title></head>"
@@ -696,7 +698,7 @@ void Http::processData(std::vector<std::string> lines) {
 void Http::sendPage(std::string text) {
     std::vector<unsigned char> sd;
     std::string head = "HTTP/1.0 200 OK\r\n"
-                       "Content-Type: text/html\r\n";
+                       "Content-Type: text/html; charset=utf-8\r\n";
     
     head += "Content-Length: " + boost::lexical_cast<std::string>((int)(text.length())) + "\r\n";
     text += "\r\n\r\n";
@@ -705,6 +707,16 @@ void Http::sendPage(std::string text) {
     addDataToVector(sd, head.c_str(), head.length());
     addDataToVector(sd, text.c_str(), text.length());
     send(sd);
+}
+
+std::string Http::htmlspecialchars(std::string input) {
+	std::string result = input;
+	boost::replace_all(result, "&", "&amp;");
+	boost::replace_all(result, "\"", "&quot;");
+	boost::replace_all(result, "'", "&#039;");
+	boost::replace_all(result, "<", "&lt;");
+	boost::replace_all(result, ">", "&gt;");
+	return result;
 }
 
 Http::~Http(void) {
