@@ -1,5 +1,7 @@
 # Vita Homebrew Downloader
 Download and install VPK files on your Vita without using a computer or a web browser.  
+
+Screenshots: http://imgur.com/a/SIzkL (Version 0.2)
   
 Client:  
 Required to build: vitasdk (https://github.com/vitasdk)  
