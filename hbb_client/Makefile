@@ -9,7 +9,7 @@ LIBS = -lSceKernel_stub -lSceDisplay_stub -lSceGxm_stub -lSceSysmodule_stub \
        -lSceCtrl_stub -lSceTouch_stub -lSceMotion_stub -lScePgf_stub \
        -lSceNet_stub -lSceNetCtl_stub -lSceAppUtil_stub -lSceCommonDialog_stub \
        -lSceAudio_stub -lSceRtc_stub -lSceCamera_stub -lScePower_stub \
-       -lScePromoterUtil_stub -lSceIme_stub -lc -lm
+       -lScePromoterUtil_stub -lSceIme_stub -lSceAppMgr_stub -lc -lm
 
 PREFIX  = arm-vita-eabi
 CC      = $(PREFIX)-gcc
@@ -24,7 +24,7 @@ all: $(TARGET).vpk
 	python ~/vita-pack-vpk-gen.py vpk_extras output $@
 	
 eboot.bin: $(TARGET).velf
-	vita-make-fself output/$< output/$@
+	vita-make-fself -s output/$< output/$@
 
 %.velf: %.elf
 	$(PREFIX)-strip -g output/$<

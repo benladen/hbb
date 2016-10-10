@@ -536,13 +536,13 @@ static int loadConfig(void) {
 		while (entryCount > 0) {
 			sceIoRead(cfgFile, &entryID, 1);
 			sceIoRead(cfgFile, &entryLength, 2);
-			if (entryID == 1) { /* IP */
+			if (entryID == 1) { /* Server 1 IP */
 				sceIoRead(cfgFile, &entryUnsignedShort, 2);
 				entryCharPtr = (char*)calloc(1, entryUnsignedShort+1);
 				sceIoRead(cfgFile, entryCharPtr, entryUnsignedShort);
 				configIP = entryCharPtr;
 			}
-			else if (entryID == 2) { /* Port */
+			else if (entryID == 2) { /* Server 1 Port */
 				sceIoRead(cfgFile, &entryUnsignedShort, 2);
 				configPort = entryUnsignedShort;
 			}
@@ -558,6 +558,16 @@ static int loadConfig(void) {
 				sceIoRead(cfgFile, &entryUnsignedChar, 1);
 				configBackTouchscreen = entryUnsignedChar;
 			}
+			/*else if (entryID == 6) { / Server 1 Name /
+			}
+			else if (entryID == 7) { / Server 2 Name/IP/Port /
+			}
+			else if (entryID == 8) { / Server 3 Name/IP/Port /
+			}
+			else if (entryID == 9) { / Server 4 Name/IP/Port /
+			}
+			else if (entryID == 10) { / Server 5 Name/IP/Port /
+			}*/
 			else {
 				sceIoLseek32(cfgFile, entryLength-3, SCE_SEEK_CUR);
 			}
@@ -2041,6 +2051,9 @@ int eventNetworkMsg(char ev1, char ev2, char *data, size_t len) {
 			char fileIsDir;
 			
 			SceUID mkfile;
+			/*char *grpMp = NULL;
+			char *grpUnk = NULL;
+			char error4 = 0;*/
 			
 			clearInstallPkgInfo();
 			preparePtmp();
@@ -2116,6 +2129,44 @@ int eventNetworkMsg(char ev1, char ev2, char *data, size_t len) {
 						}
 					}
 				}
+				
+				/*
+				grpMp = (char*)calloc(1, fileNameLength+14+1);
+				grpUnk = (char*)calloc(1, fileNameLength+14+1);
+				if ((grpMp == NULL) || (grpUnk == NULL)) {
+					error4 = 1;
+				}
+				if (error4 == 0) {
+					if (sceAppMgrGetRawPath(fileName, grpMp, grpUnk) == 0) {
+						if (fileIsDir == 1) {
+							if (grpMp[fileNameLength+13] == 0) {
+								grpMp[fileNameLength+13] = '/';
+							}
+						}
+						if (memcmp(fileName, grpMp, fileNameLength+14+1) != 0) {
+							error4 = 1;
+						}
+					}
+					else {
+						error4 = 1;
+					}
+				}
+				if (grpMp != NULL) {
+					free(grpMp);
+					grpMp = NULL;
+				}
+				if (grpUnk != NULL) {
+					free(grpUnk);
+					grpUnk = NULL;
+				}
+				if (error4 == 1) {
+					free(fileName);
+					installPkgInfo = pi;
+					clearInstallPkgInfo();
+					lastError = ERROR_EV42_E4;
+					return 0;
+				}
+				*/
 				
 				if (fileIsDir == 0) {
 					int i = 15;

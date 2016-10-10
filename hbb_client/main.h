@@ -35,6 +35,7 @@
 #include <psp2/kernel/processmgr.h>
 #include <psp2/kernel/modulemgr.h>
 #include <psp2/apputil.h>
+#include <psp2/appmgr.h>
 #include "sysmodule_internal.h"
 #include "promoterutil.h"
 #include "sha1.h"

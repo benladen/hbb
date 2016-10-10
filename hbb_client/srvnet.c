@@ -44,6 +44,7 @@ static int networkRunThread(SceSize args, void *argp) {
 	unsigned int rtn;
 	int i = 0;
 	SceNetSockaddrIn sockAddrIn;
+	int netResolverId;
 	char *sendVer;
 	struct netInfo *netinfp;
 	netinfp = *(struct netInfo**)(argp);
@@ -65,7 +66,11 @@ static int networkRunThread(SceSize args, void *argp) {
 				memset(&sockAddrIn, 0, sizeof(sockAddrIn));
 				sockAddrIn.sin_family = SCE_NET_AF_INET;
 				sockAddrIn.sin_port = sceNetHtons(netinfp->port);
-				sceNetInetPton(SCE_NET_AF_INET, netinfp->addr, &sockAddrIn.sin_addr);
+				
+				netResolverId = sceNetResolverCreate("DNS_RESOLVER", NULL, 0);
+				sceNetResolverStartNtoa(netResolverId, netinfp->addr, &sockAddrIn.sin_addr, 3000000, 3, 0);
+				sceNetResolverDestroy(netResolverId);
+
 				i = sceNetConnect(netinfp->serverSocketFD, (SceNetSockaddr*)&sockAddrIn, sizeof(sockAddrIn));
 				if (i < 0) {
 					debugMessage("sceNetConnect failed:");

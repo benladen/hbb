@@ -958,28 +958,36 @@ int graphicsEnd(void) {
 }
 
 void graphicsClearScreen(void) {
+	graphicsClearScreenColor(0.0f, 0.0f, 0.0f, 1.0f);
+}
+
+void graphicsClearScreenColor(float a, float b, float c, float d) {
 	int rtn;
-	float clear_color[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+	float clear_color[4];
 	void *color_buffer;
+	clear_color[0] = a;
+	clear_color[1] = b;
+	clear_color[2] = c;
+	clear_color[3] = d;
 	sceGxmSetVertexProgram(gxmContext, clearVertexProgram);
 	sceGxmSetFragmentProgram(gxmContext, clearFragmentProgram);
 
 	rtn = sceGxmReserveFragmentDefaultUniformBuffer(gxmContext, &color_buffer);
 	if (rtn < 0) {
-		_graphicsDebugMessageWithInt("graphicsClearScreen: sceGxmReserveFragmentDefaultUniformBuffer error:", rtn);
+		_graphicsDebugMessageWithInt("graphicsClearScreenColor: sceGxmReserveFragmentDefaultUniformBuffer error:", rtn);
 	}
 	rtn = sceGxmSetUniformDataF(color_buffer, gxmClearClearColorParam, 0, 4, clear_color);
 	if (rtn < 0) {
-		_graphicsDebugMessageWithInt("graphicsClearScreen: sceGxmSetUniformDataF error:", rtn);
+		_graphicsDebugMessageWithInt("graphicsClearScreenColor: sceGxmSetUniformDataF error:", rtn);
 	}
 
 	rtn = sceGxmSetVertexStream(gxmContext, 0, clearVertices);
 	if (rtn < 0) {
-		_graphicsDebugMessageWithInt("graphicsClearScreen: sceGxmSetVertexStream error:", rtn);
+		_graphicsDebugMessageWithInt("graphicsClearScreenColor: sceGxmSetVertexStream error:", rtn);
 	}
 	rtn = sceGxmDraw(gxmContext, SCE_GXM_PRIMITIVE_TRIANGLES, SCE_GXM_INDEX_FORMAT_U16, clearIndices, 3);
 	if (rtn < 0) {
-		_graphicsDebugMessageWithInt("graphicsClearScreen: sceGxmDraw error:", rtn);
+		_graphicsDebugMessageWithInt("graphicsClearScreenColor: sceGxmDraw error:", rtn);
 	}
 }
 
@@ -1019,8 +1027,12 @@ void graphicsEndDrawing(void) {
 	++frameNum;
 }
 
+void graphicsWaitFinish(void) {
+	sceGxmFinish(gxmContext);
+}
+
 struct graphicsTexture* graphicsCreateTexture(unsigned int w, unsigned int h) {
-	return graphicsCreateTextureFormat(w, h, SCE_GXM_TEXTURE_FORMAT_A8B8G8R8);
+	return graphicsCreateTextureFormat(w, h, SCE_GXM_TEXTURE_FORMAT_U8U8U8U8_ABGR);
 }
 
 struct graphicsTexture* graphicsCreateTextureFormat(unsigned int w, unsigned int h, SceGxmTextureFormat format) {

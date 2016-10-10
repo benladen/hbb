@@ -26,7 +26,7 @@
     #define PSP2_DISPLAY_STRIDE_IN_PIXELS 1024
 #endif
 #ifndef PSP2_DISPLAY_COLOR_FORMAT
-    #define PSP2_DISPLAY_COLOR_FORMAT SCE_GXM_COLOR_FORMAT_A8B8G8R8
+    #define PSP2_DISPLAY_COLOR_FORMAT SCE_GXM_COLOR_FORMAT_U8U8U8U8_ABGR
 #endif
 #ifndef PSP2_DISPLAY_PIXEL_FORMAT
     #define PSP2_DISPLAY_PIXEL_FORMAT SCE_DISPLAY_PIXELFORMAT_A8B8G8R8
@@ -61,9 +61,11 @@ int textureFormatSize(SceGxmTextureFormat);
 int graphicsInit(unsigned int);
 int graphicsEnd(void);
 void graphicsClearScreen(void);
+void graphicsClearScreenColor(float a, float b, float c, float d);
 void graphicsSwapBuffers(void);
 void graphicsStartDrawing(void);
 void graphicsEndDrawing(void);
+void graphicsWaitFinish(void);
 
 struct graphicsTexture* graphicsCreateTexture(unsigned int, unsigned int);
 struct graphicsTexture* graphicsCreateTextureFormat(unsigned int, unsigned int, SceGxmTextureFormat);
