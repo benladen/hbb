@@ -1,7 +1,7 @@
 import struct
 from StringIO import StringIO
 
-IP = "<IP ADDRESS HERE>"
+IP = "<SERVER IP/DOMAIN HERE>"
 
 sd = "HBBCFG"
 sd += struct.pack("<B", 1) #Version

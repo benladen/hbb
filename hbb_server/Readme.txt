@@ -1,11 +1,12 @@
 Install/First Run
 ---------------------
-Replace <IP ADDRESS HERE> in hbb_cfg.py with the IP address which the server will be accessible from.
+Replace <SERVER IP/DOMAIN HERE> in hbb_cfg.py with the IP or domain name address which the server will be accessible from.
 After running hbb_cfg.py, put the new config.dat into the data folder inside hbb.vpk
 
 Edit config.ini however you want, using the existing values as examples.
+Note: In DataDir, Use \ on Windows, and / on Linux.
 
-Place VPK files into the data directory.
+Place VPK files into the data directory. To avoid problems, keep their filenames restricted to printable ASCII characters.
 
 Run hbb_srv, then visit it in the browser.
 Such as if HTTP_Port=40222 and you are running it on your computer, then you can go to http://127.0.0.1:40222/
@@ -16,7 +17,7 @@ Check the results in "Display all in the app table."
 
 Test hbb.vpk to verify your config.dat
 
-If you want it to be accessible from the internet, you should have a static IP which you would be using in hbb_cfg.py
+If you want it to be accessible from the internet, you should have a static public IP or a domain name which you would be using in hbb_cfg.py
 and the port must be forwarded in your firewall. Do not forward the HTTP_Port unless you want that to be accessible too.
 
 

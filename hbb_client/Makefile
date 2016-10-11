@@ -24,7 +24,7 @@ all: $(TARGET).vpk
 	python ~/vita-pack-vpk-gen.py vpk_extras output $@
 	
 eboot.bin: $(TARGET).velf
-	vita-make-fself -s output/$< output/$@
+	vita-make-fself output/$< output/$@
 
 %.velf: %.elf
 	$(PREFIX)-strip -g output/$<

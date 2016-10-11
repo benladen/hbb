@@ -186,7 +186,7 @@ static SceCommonDialogStatus imeDialogStatus;
 static SceImeDialogParam imeDialogParam;
 static SceImeDialogResult imeResult;
 
-static char *configIP = NULL;
+static char *configSrvAddr = NULL;
 static unsigned short configPort = 40111;
 static unsigned char configUpdate = 0;
 static unsigned char configFrontTouchscreen = 1;
@@ -536,11 +536,11 @@ static int loadConfig(void) {
 		while (entryCount > 0) {
 			sceIoRead(cfgFile, &entryID, 1);
 			sceIoRead(cfgFile, &entryLength, 2);
-			if (entryID == 1) { /* Server 1 IP */
+			if (entryID == 1) { /* Server 1 Address */
 				sceIoRead(cfgFile, &entryUnsignedShort, 2);
 				entryCharPtr = (char*)calloc(1, entryUnsignedShort+1);
 				sceIoRead(cfgFile, entryCharPtr, entryUnsignedShort);
-				configIP = entryCharPtr;
+				configSrvAddr = entryCharPtr;
 			}
 			else if (entryID == 2) { /* Server 1 Port */
 				sceIoRead(cfgFile, &entryUnsignedShort, 2);
@@ -560,13 +560,13 @@ static int loadConfig(void) {
 			}
 			/*else if (entryID == 6) { / Server 1 Name /
 			}
-			else if (entryID == 7) { / Server 2 Name/IP/Port /
+			else if (entryID == 7) { / Server 2 Name/Address/Port /
 			}
-			else if (entryID == 8) { / Server 3 Name/IP/Port /
+			else if (entryID == 8) { / Server 3 Name/Address/Port /
 			}
-			else if (entryID == 9) { / Server 4 Name/IP/Port /
+			else if (entryID == 9) { / Server 4 Name/Address/Port /
 			}
-			else if (entryID == 10) { / Server 5 Name/IP/Port /
+			else if (entryID == 10) { / Server 5 Name/Address/Port /
 			}*/
 			else {
 				sceIoLseek32(cfgFile, entryLength-3, SCE_SEEK_CUR);
@@ -650,7 +650,7 @@ int eventInit(void) {
 	loadingTex->y = PSP2_DISPLAY_HEIGHT/2;
 	debugTextPrint(textLayer, "Connecting...", 400, 300, DBGTXT_C7, DBGTXT_C0, DBGTXT_SMALL);
 	debugMessage("Press LTRIGGER to show/hide debug text.");
-	if (configIP == NULL) {
+	if (configSrvAddr == NULL) {
 		dialogID = 7;
 		dialogDisplay = 1;
 		dialogType = 2;
@@ -661,7 +661,7 @@ int eventInit(void) {
 		showLoadingTex = 0;
 	}
 	else {
-		initConnection(configIP, configPort);
+		initConnection(configSrvAddr, configPort);
 	}
 	return 0;
 }
